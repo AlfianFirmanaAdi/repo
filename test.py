@@ -124,11 +124,11 @@ if uploaded_file is not None:
     elif not allowed_file(uploaded_file.name):
         st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
     else:
-        # Simpan file
-        filename = uploaded_file.name
-        unique_id = uuid.uuid4().hex[:8]
-        base, ext = os.path.splitext(filename)
-        unique_filename = f"{base}_{unique_id}{ext}"
+        # Simpan file dengan nama unik (UUID)
+        original_filename = uploaded_file.name
+        unique_id = uuid.uuid4().hex # Gunakan seluruh UUID untuk keunikan maksimal
+        _, ext = os.path.splitext(original_filename) # Ambil hanya ekstensi dari nama asli
+        unique_filename = f"{unique_id}{ext}" # Nama file hanya UUID + ekstensi
         file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
 
         try:
@@ -193,7 +193,8 @@ else:
                 
                 # Gunakan st.container untuk membungkus gambar dan checkbox
                 with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    st.image(img, caption=image_name, use_container_width=True)
+                    # Perbaikan: Mengganti use_column_width dengan use_container_width
+                    st.image(img, caption=image_name, use_container_width=True) 
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
