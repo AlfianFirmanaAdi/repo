@@ -193,7 +193,7 @@ else:
                 
                 # Gunakan st.container untuk membungkus gambar dan checkbox
                 with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    st.image(img, caption=image_name, use_column_width=True)
+                    st.image(img, caption=image_name, use_container_width=True)
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
