@@ -31,7 +31,8 @@ st.markdown(
         background-color: #1a1a1a; /* Dark background for the app */
         color: #e0e0e0; /* Light text color */
     }
-    .st-emotion-cache-nahz7x { /* Adjust header background if needed */
+    /* Menggunakan kelas yang lebih spesifik untuk mencegah konflik */
+    .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
         background-color: #2c3034;
         padding: 1rem;
         border-radius: 0.5rem;
@@ -42,6 +43,7 @@ st.markdown(
     .stFileUploader {
         color: #e0e0e0;
     }
+    /* Gaya untuk semua tombol Streamlit */
     .stButton>button {
         background-color: #0d6efd;
         color: white;
@@ -58,12 +60,22 @@ st.markdown(
     .stButton>button:active {
         background-color: #084298;
     }
-    .delete-button {
-        background-color: #dc3545 !important;
+    /* Gaya spesifik untuk tombol hapus */
+    .stButton[data-testid="stButton-confirm_delete"] > button,
+    .stButton[data-testid="stButton-toggle_delete_mode"] > button {
+        background-color: #dc3545; /* Merah untuk hapus */
     }
-    .delete-button:hover {
-        background-color: #bb2d3b !important;
+    .stButton[data-testid="stButton-confirm_delete"] > button:hover,
+    .stButton[data-testid="stButton-toggle_delete_mode"] > button:hover {
+        background-color: #bb2d3b;
     }
+    .stButton[data-testid="stButton-cancel_delete_mode"] > button {
+        background-color: #6c757d; /* Abu-abu untuk batal */
+    }
+     .stButton[data-testid="stButton-cancel_delete_mode"] > button:hover {
+        background-color: #5a6268;
+    }
+
     .stAlert {
         color: #e0e0e0;
         background-color: #343a40;
@@ -112,32 +124,44 @@ st.markdown("---")
 # --- Bagian Upload Foto ---
 st.header("Bagikan Foto ke Galeri WDF")
 
-uploaded_file = st.file_uploader(
+# Inisialisasi session state untuk file uploader jika belum ada
+if 'uploader_key_counter' not in st.session_state:
+    st.session_state.uploader_key_counter = 0
+
+uploaded_file_object = st.file_uploader(
     f"Pilih Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
     type=list(ALLOWED_EXTENSIONS),
-    key="file_uploader"
+    key=f"file_uploader_{st.session_state.uploader_key_counter}" # Gunakan key dinamis
 )
 
-if uploaded_file is not None:
-    if uploaded_file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
-        st.error(f"Ukuran file terlalu besar. Maksimal {MAX_FILE_SIZE_MB}MB.")
-    elif not allowed_file(uploaded_file.name):
-        st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
-    else:
-        # Simpan file dengan nama unik (UUID)
-        original_filename = uploaded_file.name
-        unique_id = uuid.uuid4().hex # Gunakan seluruh UUID untuk keunikan maksimal
-        _, ext = os.path.splitext(original_filename) # Ambil hanya ekstensi dari nama asli
-        unique_filename = f"{unique_id}{ext}" # Nama file hanya UUID + ekstensi
-        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+# Tombol Unggah terpisah untuk mengontrol proses penyimpanan
+if uploaded_file_object is not None:
+    if st.button("Unggah Foto", key="upload_button"):
+        if uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+            st.error(f"Ukuran file terlalu besar. Maksimal {MAX_FILE_SIZE_MB}MB.")
+        elif not allowed_file(uploaded_file_object.name):
+            st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
+        else:
+            # Simpan file dengan nama unik (UUID)
+            original_filename = uploaded_file_object.name
+            unique_id = uuid.uuid4().hex # Gunakan seluruh UUID untuk keunikan maksimal
+            _, ext = os.path.splitext(original_filename) # Ambil hanya ekstensi dari nama asli
+            unique_filename = f"{unique_id}{ext}" # Nama file hanya UUID + ekstensi
+            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
 
-        try:
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
-            st.rerun() # Refresh halaman untuk menampilkan foto baru
-        except Exception as e:
-            st.error(f"Gagal mengunggah foto: {e}")
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file_object.getbuffer())
+                st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
+                
+                # Increment counter untuk mereset file uploader pada rerun berikutnya
+                st.session_state.uploader_key_counter += 1
+                st.rerun() # Refresh halaman untuk menampilkan foto baru
+            except Exception as e:
+                st.error(f"Gagal mengunggah foto: {e}")
+else:
+    st.info("Pilih file di atas untuk mulai mengunggah.")
+
 
 st.markdown("---")
 
@@ -179,9 +203,10 @@ else:
         st.warning("Pilih foto yang ingin Anda hapus. Klik lagi untuk membatalkan pilihan.")
 
     # Tampilkan Galeri
-    num_cols = st.columns(1)[0].slider("Jumlah Kolom", 1, 6, 4) # Slider for responsive columns
+    # Slider untuk jumlah kolom responsif
+    num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4) 
 
-    # Display images in a grid
+    # Tampilkan gambar dalam grid
     cols = st.columns(num_cols)
     col_idx = 0
 
