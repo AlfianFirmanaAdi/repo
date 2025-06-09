@@ -1,16 +1,36 @@
 import streamlit as st
 import os
 from PIL import Image
-import uuid # Untuk nama file unik
-from datetime import datetime # Untuk tahun di footer
+import uuid
+from datetime import datetime
+from github import Github # Import PyGithub
+from dotenv import load_dotenv # Untuk memuat variabel lingkungan dari .env
 
-# Konfigurasi
-UPLOAD_FOLDER = 'uploads_galeri_wdf'
+# Muat variabel lingkungan jika berjalan secara lokal
+load_dotenv() 
+
+# Konfigurasi GitHub dari environment variables
+GITHUB_TOKEN = os.getenv("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")
+GITHUB_REPO_OWNER = os.getenv("AlfianFirmanaAdi")
+GITHUB_REPO_NAME = os.getenv("repo")
+GITHUB_UPLOAD_PATH = "uploads_galeri_wdf" # Sub-direktori di repositori GitHub untuk gambar
+
+# Pastikan semua variabel lingkungan diatur
+if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
+    st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur.")
+    st.stop() # Hentikan aplikasi jika konfigurasi tidak lengkap
+
+# Inisialisasi GitHub API
+try:
+    g = Github(GITHUB_TOKEN)
+    repo = g.get_user(GITHUB_REPO_OWNER).get_repo(GITHUB_REPO_NAME)
+except Exception as e:
+    st.error(f"Gagal terhubung ke repositori GitHub. Pastikan token dan detail repositori benar: {e}")
+    st.stop()
+
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
 MAX_FILE_SIZE_MB = 32 # Max 32MB
-
-# Buat folder upload jika belum ada
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -19,11 +39,11 @@ def allowed_file(filename):
 st.set_page_config(
     page_title="🏕️ Galeri WDF",
     page_icon="📸",
-    layout="wide", # Ini adalah kunci responsifitas awal
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Header ---
+# --- CSS Styling ---
 st.markdown(
     """
     <style>
@@ -31,7 +51,6 @@ st.markdown(
         background-color: #1a1a1a; /* Dark background for the app */
         color: #e0e0e0; /* Light text color */
     }
-    /* Menggunakan kelas yang lebih spesifik untuk mencegah konflik */
     .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
         background-color: #2c3034;
         padding: 1rem;
@@ -43,7 +62,6 @@ st.markdown(
     .stFileUploader {
         color: #e0e0e0;
     }
-    /* Gaya untuk semua tombol Streamlit */
     .stButton>button {
         background-color: #0d6efd;
         color: white;
@@ -60,7 +78,6 @@ st.markdown(
     .stButton>button:active {
         background-color: #084298;
     }
-    /* Gaya spesifik untuk tombol hapus */
     .stButton[data-testid="stButton-confirm_delete"] > button,
     .stButton[data-testid="stButton-toggle_delete_mode"] > button {
         background-color: #dc3545; /* Merah untuk hapus */
@@ -85,15 +102,14 @@ st.markdown(
     .stImage > img { /* Target gambar di dalam st.image */
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
-        border-radius: 0.3rem; /* Mempertahankan border-radius pada gambar itu sendiri */
+        border-radius: 0.3rem;
     }
     /* Menghilangkan border dari kontainer Streamlit */
-    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1, /* Main container for components in the gallery */
-    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div { /* Individual image containers */
-        border: none !important; /* Menghapus semua border */
-        box-shadow: none !important; /* Menghapus bayangan jika ada */
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
+        border: none !important;
+        box-shadow: none !important;
     }
-    /* Pastikan gambar dalam container tidak memiliki border tambahan */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div > img {
         border: none !important;
     }
@@ -119,20 +135,15 @@ st.markdown("---")
 # --- Bagian Upload Foto ---
 st.header("Bagikan Foto ke Galeri WDF")
 
-# Inisialisasi session state untuk file uploader jika belum ada
 if 'uploader_key_counter' not in st.session_state:
     st.session_state.uploader_key_counter = 0
-# Hapus inisialisasi image_descriptions karena tidak lagi digunakan
-# if 'image_descriptions' not in st.session_state:
-#     st.session_state.image_descriptions = {}
 
 uploaded_file_object = st.file_uploader(
     f"Pilih Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
     type=list(ALLOWED_EXTENSIONS),
-    key=f"file_uploader_{st.session_state.uploader_key_counter}" # Gunakan key dinamis
+    key=f"file_uploader_{st.session_state.uploader_key_counter}"
 )
 
-# Tombol Unggah terpisah untuk mengontrol proses penyimpanan
 if uploaded_file_object is not None:
     if st.button("Unggah Foto", key="upload_button"):
         if uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
@@ -140,64 +151,56 @@ if uploaded_file_object is not None:
         elif not allowed_file(uploaded_file_object.name):
             st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
         else:
-            # Simpan file dengan nama unik (UUID)
             original_filename = uploaded_file_object.name
-            unique_id = uuid.uuid4().hex # Gunakan seluruh UUID untuk keunikan maksimal
-            _, ext = os.path.splitext(original_filename) # Ambil hanya ekstensi dari nama asli
-            unique_filename = f"{unique_id}{ext}" # Nama file hanya UUID + ekstensi
-            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+            unique_id = uuid.uuid4().hex
+            _, ext = os.path.splitext(original_filename)
+            github_filename = f"{unique_id}{ext}" # Nama file yang akan disimpan di GitHub
+            github_filepath = f"{GITHUB_UPLOAD_PATH}/{github_filename}"
 
             try:
-                with open(file_path, "wb") as f:
-                    f.write(uploaded_file_object.getbuffer())
+                # Mengunggah file ke GitHub
+                repo.create_file(
+                    path=github_filepath,
+                    message=f"Upload {github_filename} from Streamlit app",
+                    content=uploaded_file_object.getvalue(), # Mendapatkan konten biner file
+                    branch="main" # Atau branch default Anda
+                )
+                st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
                 
-                # Hapus baris inisialisasi deskripsi
-                # st.session_state.image_descriptions[unique_filename] = "" 
-                
-                st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
-                
-                # Increment counter untuk mereset file uploader pada rerun berikutnya
                 st.session_state.uploader_key_counter += 1
-                st.rerun() # Refresh halaman untuk menampilkan foto baru
+                st.rerun() 
             except Exception as e:
-                st.error(f"Gagal mengunggah foto: {e}")
+                st.error(f"Gagal mengunggah foto ke GitHub: {e}")
 else:
     st.info("Pilih file di atas untuk mulai mengunggah.")
-
 
 st.markdown("---")
 
 # --- Bagian Galeri ---
 st.header("Koleksi Foto")
 
-image_files = []
-if os.path.exists(UPLOAD_FOLDER):
-    valid_files = [f for f in os.listdir(UPLOAD_FOLDER) if allowed_file(f)]
-    # Urutkan berdasarkan waktu modifikasi terbaru
-    image_files = sorted(
-        valid_files,
-        key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER, x)),
-        reverse=True
-    )
+# Mendapatkan daftar file dari repositori GitHub
+image_files_github = []
+try:
+    contents = repo.get_contents(GITHUB_UPLOAD_PATH)
+    for content_file in contents:
+        if content_file.type == "file" and allowed_file(content_file.name):
+            image_files_github.append(content_file.name)
+    
+    # Sort files by the SHA of the commit that last modified them (approximation of creation/upload time)
+    # This is more complex than local file mtime, so we'll just sort alphabetically for simplicity.
+    image_files_github.sort(reverse=True) # Sort alfabetis descending
+    
+except Exception as e:
+    st.error(f"Gagal mengambil daftar foto dari GitHub: {e}")
 
-if not image_files:
+if not image_files_github:
     st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
 else:
-    # Mode Hapus
     if 'delete_mode' not in st.session_state:
         st.session_state.delete_mode = False
     if 'selected_for_delete' not in st.session_state:
         st.session_state.selected_for_delete = set()
-    
-    # Hapus bagian sinkronisasi deskripsi karena tidak lagi digunakan
-    # current_files_set = set(image_files)
-    # st.session_state.image_descriptions = {
-    #     k: v for k, v in st.session_state.image_descriptions.items()
-    #     if k in current_files_set
-    # }
-    # for img_file in image_files:
-    #     if img_file not in st.session_state.image_descriptions:
-    #         st.session_state.image_descriptions[img_file] = "" # Inisialisasi deskripsi kosong untuk gambar baru
 
     col_btn1, col_btn2 = st.columns([1, 5])
     with col_btn1:
@@ -214,33 +217,20 @@ else:
     if st.session_state.delete_mode:
         st.warning("Pilih foto yang ingin Anda hapus. Klik lagi untuk membatalkan pilihan.")
 
-    # Tampilkan Galeri
-    # Slider untuk jumlah kolom responsif
     num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4) 
 
-    # Tampilkan gambar dalam grid
     cols = st.columns(num_cols)
     col_idx = 0
 
-    for image_name in image_files:
+    for image_name in image_files_github:
         with cols[col_idx]:
-            file_path = os.path.join(UPLOAD_FOLDER, image_name)
+            # Dapatkan URL mentah untuk gambar dari GitHub
+            # Format URL mentah: https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path_to_file}
+            image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
+            
             try:
-                img = Image.open(file_path)
-                
-                # Menggunakan st.container() tanpa border=True
                 with st.container():
-                    st.image(img, use_container_width=True) 
-
-                    # Hapus bagian input teks untuk deskripsi
-                    # current_description = st.session_state.image_descriptions.get(image_name, "")
-                    # new_description = st.text_input(
-                    #     "Deskripsi:",
-                    #     value=current_description,
-                    #     key=f"description_{image_name}"
-                    # )
-                    # if new_description != current_description:
-                    #     st.session_state.image_descriptions[image_name] = new_description
+                    st.image(image_url, use_container_width=True) 
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
@@ -253,7 +243,7 @@ else:
                                 st.session_state.selected_for_delete.remove(image_name)
 
             except Exception as e:
-                st.error(f"Tidak dapat memuat gambar {image_name}: {e}")
+                st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
             
         col_idx = (col_idx + 1) % num_cols
 
@@ -266,37 +256,30 @@ else:
         if st.button(
             f"Hapus {len(st.session_state.selected_for_delete)} Foto Terpilih",
             key="confirm_delete",
-            type="primary" # Menggunakan type primary untuk tombol utama
+            type="primary"
         ):
             deleted_count = 0
             error_count = 0
-            upload_folder_abs = os.path.abspath(UPLOAD_FOLDER)
 
             for filename_to_delete in st.session_state.selected_for_delete:
-                file_path_abs = os.path.abspath(os.path.join(UPLOAD_FOLDER, filename_to_delete))
-
-                # Validasi keamanan untuk mencegah path traversal
-                if not file_path_abs.startswith(upload_folder_abs) or '..' in filename_to_delete:
-                    st.error(f"Nama file tidak valid atau akses ditolak: {filename_to_delete}")
+                github_filepath_to_delete = f"{GITHUB_UPLOAD_PATH}/{filename_to_delete}"
+                try:
+                    # Dapatkan referensi file di GitHub
+                    file_content = repo.get_contents(github_filepath_to_delete)
+                    # Hapus file dari GitHub
+                    repo.delete_file(
+                        path=file_content.path,
+                        message=f"Delete {filename_to_delete} from Streamlit app",
+                        sha=file_content.sha,
+                        branch="main"
+                    )
+                    deleted_count += 1
+                except Exception as e:
                     error_count += 1
-                    continue
-
-                if os.path.exists(file_path_abs):
-                    try:
-                        os.remove(file_path_abs)
-                        # Hapus baris ini karena image_descriptions tidak lagi digunakan
-                        # if filename_to_delete in st.session_state.image_descriptions:
-                        #     del st.session_state.image_descriptions[filename_to_delete]
-                        deleted_count += 1
-                    except Exception as e:
-                        error_count += 1
-                        st.error(f"Gagal menghapus {filename_to_delete}: {e}")
-                else:
-                    st.warning(f"File {filename_to_delete} tidak ditemukan.")
-                    error_count += 1
+                    st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
 
             if deleted_count > 0:
-                st.success(f'{deleted_count} foto berhasil dihapus.')
+                st.success(f'{deleted_count} foto berhasil dihapus dari GitHub.')
             if error_count > 0:
                 st.error(f'{error_count} foto gagal dihapus atau tidak ditemukan.')
 
@@ -305,7 +288,6 @@ else:
             st.rerun() # Refresh halaman setelah penghapusan
     elif st.session_state.delete_mode and not st.session_state.selected_for_delete:
         st.info("Pilih foto untuk mengaktifkan tombol hapus.")
-
 
 # --- Footer ---
 st.markdown("---")
