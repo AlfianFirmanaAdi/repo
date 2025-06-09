@@ -19,7 +19,7 @@ def allowed_file(filename):
 st.set_page_config(
     page_title="🏕️ Galeri WDF",
     page_icon="📸",
-    layout="wide",
+    layout="wide", # Ini adalah kunci responsifitas awal
     initial_sidebar_state="expanded"
 )
 
@@ -81,6 +81,8 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
+    /* Hapus bagian ini karena st.columns sudah menangani grid secara responsif */
+    /*
     .gallery-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -97,8 +99,8 @@ st.markdown(
         justify-content: center;
         padding: 0.5rem;
     }
-    .gallery-item img {
-        width: 100%;
+    */
+    .stImage > img { /* Target gambar di dalam st.image */
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
         border-radius: 0.3rem;
@@ -222,9 +224,12 @@ else:
 
     # Tampilkan Galeri
     # Slider untuk jumlah kolom responsif
+    # Nilai default 4 cukup baik untuk layar desktop, akan otomatis menyesuaikan menjadi 1 di layar kecil
     num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4) 
 
     # Tampilkan gambar dalam grid
+    # st.columns akan secara otomatis menjadi 1 kolom di layar kecil (< 768px)
+    # dan menggunakan jumlah kolom yang ditentukan di layar yang lebih besar.
     cols = st.columns(num_cols)
     col_idx = 0
 
@@ -235,9 +240,7 @@ else:
                 img = Image.open(file_path)
                 
                 with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    # Perbaikan: Mengganti use_column_width dengan use_container_width
-                    # Menampilkan gambar tanpa caption default
-                    st.image(img, use_container_width=True) 
+                    st.image(img, use_container_width=True) # Ini akan menyesuaikan lebar gambar dengan kontainernya
 
                     # Input teks untuk deskripsi
                     current_description = st.session_state.image_descriptions.get(image_name, "")
@@ -249,7 +252,9 @@ else:
                     # Perbarui deskripsi jika ada perubahan
                     if new_description != current_description:
                         st.session_state.image_descriptions[image_name] = new_description
-                        st.rerun() # Rerun untuk memperbarui tampilan (opsional, bisa juga tanpa rerun jika tidak ada efek samping besar)
+                        # Tidak perlu rerun di sini kecuali ada alasan spesifik yang membuat tampilan harus langsung berubah
+                        # karena perubahan text_input biasanya tidak memicu rerun otomatis
+                        # st.rerun() 
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
