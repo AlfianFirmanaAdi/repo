@@ -11,7 +11,7 @@ load_dotenv() # Ini memuat variabel dari .env
 load_dotenv() 
 
 # Konfigurasi GitHub dari environment variables
-GITHUB_TOKEN = os.getenv("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")
+GITHUB_TOKEN = os.getenv("ghp_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")
 GITHUB_REPO_OWNER = os.getenv("AlfianFirmanaAdi")
 GITHUB_REPO_NAME = os.getenv("repo")
 GITHUB_UPLOAD_PATH = "uploads_galeri_wdf" # Sub-direktori di repositori GitHub untuk gambar
