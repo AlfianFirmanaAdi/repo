@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 # Konfigurasi GitHub dari environment variables
-GITHUB_TOKEN = os.getenv("ghp_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")
-GITHUB_REPO_OWNER = os.getenv("AlfianFirmanaAdi")
-GITHUB_REPO_NAME = os.getenv("repo")
-GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk gambar
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") # Membaca environment variable bernama "GITHUB_TOKEN"
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER") # Membaca environment variable bernama "GITHUB_REPO_OWNER"
+GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME") # Membaca environment variable bernama "GITHUB_REPO_NAME"
+GITHUB_UPLOAD_PATH = "gallery_images" # Ini adalah nama folder, bukan environment variable
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
