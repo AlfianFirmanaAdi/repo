@@ -81,30 +81,24 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
-    /* Hapus bagian ini karena st.columns sudah menangani grid secara responsif */
-    /*
-    .gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
-    }
-    .gallery-item {
-        background-color: #2c3034;
-        border-radius: 0.5rem;
-        overflow: hidden;
-        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem;
-    }
-    */
+    
     .stImage > img { /* Target gambar di dalam st.image */
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
-        border-radius: 0.3rem;
+        border-radius: 0.3rem; /* Mempertahankan border-radius pada gambar itu sendiri */
     }
+    /* Menghilangkan border dari kontainer Streamlit */
+    .st-emotion-cache-nahz7x.e1nzilvr4 div.st-emotion-cache-nahz7x.e1nzilvr4, /* Sidebar container */
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1, /* Main container for components in the gallery */
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div { /* Individual image containers */
+        border: none !important; /* Menghapus semua border */
+        box-shadow: none !important; /* Menghapus bayangan jika ada */
+    }
+    /* Pastikan gambar dalam container tidak memiliki border tambahan */
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div > img {
+        border: none !important;
+    }
+
     .footer {
         text-align: center;
         padding: 1.5rem 0;
@@ -224,12 +218,9 @@ else:
 
     # Tampilkan Galeri
     # Slider untuk jumlah kolom responsif
-    # Nilai default 4 cukup baik untuk layar desktop, akan otomatis menyesuaikan menjadi 1 di layar kecil
     num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4) 
 
     # Tampilkan gambar dalam grid
-    # st.columns akan secara otomatis menjadi 1 kolom di layar kecil (< 768px)
-    # dan menggunakan jumlah kolom yang ditentukan di layar yang lebih besar.
     cols = st.columns(num_cols)
     col_idx = 0
 
@@ -239,8 +230,10 @@ else:
             try:
                 img = Image.open(file_path)
                 
-                with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    st.image(img, use_container_width=True) # Ini akan menyesuaikan lebar gambar dengan kontainernya
+                # Menggunakan st.container() tanpa border=True
+                # Karena kita akan mengontrol border melalui CSS global di bawah
+                with st.container():
+                    st.image(img, use_container_width=True) 
 
                     # Input teks untuk deskripsi
                     current_description = st.session_state.image_descriptions.get(image_name, "")
@@ -252,9 +245,7 @@ else:
                     # Perbarui deskripsi jika ada perubahan
                     if new_description != current_description:
                         st.session_state.image_descriptions[image_name] = new_description
-                        # Tidak perlu rerun di sini kecuali ada alasan spesifik yang membuat tampilan harus langsung berubah
-                        # karena perubahan text_input biasanya tidak memicu rerun otomatis
-                        # st.rerun() 
+                        # st.rerun() # Tidak perlu rerun di sini, perubahan text_input tidak selalu memerlukan rerun visual
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
