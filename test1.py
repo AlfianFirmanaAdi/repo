@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 from github import Github # Import PyGithub
 from dotenv import load_dotenv
-load_dotenv() # Ini memuat variabel dari .env
 
 # Muat variabel lingkungan jika berjalan secara lokal
 load_dotenv() 
@@ -14,7 +13,7 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("ghp_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")
 GITHUB_REPO_OWNER = os.getenv("AlfianFirmanaAdi")
 GITHUB_REPO_NAME = os.getenv("repo")
-GITHUB_UPLOAD_PATH = "uploads_galeri_wdf" # Sub-direktori di repositori GitHub untuk gambar
+GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk gambar
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
