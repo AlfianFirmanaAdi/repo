@@ -3,22 +3,22 @@ import os
 from PIL import Image
 import uuid
 from datetime import datetime
-from github import Github # Import PyGithub
-from dotenv import load_dotenv
+from github import Github 
+from dotenv import load_dotenv 
 
 # Muat variabel lingkungan jika berjalan secara lokal
 load_dotenv() 
 
 # Konfigurasi GitHub dari environment variables
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") # Membaca environment variable bernama "GITHUB_TOKEN"
-GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER") # Membaca environment variable bernama "GITHUB_REPO_OWNER"
-GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME") # Membaca environment variable bernama "GITHUB_REPO_NAME"
-GITHUB_UPLOAD_PATH = "gallery_images" # Ini adalah nama folder, bukan environment variable
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER")
+GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME")
+GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk gambar
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
     st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur.")
-    st.stop() # Hentikan aplikasi jika konfigurasi tidak lengkap
+    st.stop() 
 
 # Inisialisasi GitHub API
 try:
@@ -32,18 +32,14 @@ except Exception as e:
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
 MAX_FILE_SIZE_MB = 32 # Max 32MB
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 st.set_page_config(
     page_title="🏕️ Galeri WDF",
     page_icon="📸",
-    layout="wide",
+    layout="wide", # Tetap "wide" agar konten bisa mengisi lebar, tapi kita batasi dengan CSS
     initial_sidebar_state="expanded"
 )
 
-# --- CSS Styling ---
+# --- CSS Styling (Tambahkan Bagian Ini atau Modifikasi yang Sudah Ada) ---
 st.markdown(
     """
     <style>
@@ -51,7 +47,14 @@ st.markdown(
         background-color: #1a1a1a; /* Dark background for the app */
         color: #e0e0e0; /* Light text color */
     }
-    .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
+    /* Mengontrol lebar kontainer utama aplikasi */
+    section.main[data-testid="stSidebarContent"] + section.main {
+        max-width: 900px; /* Lebar maksimal konten utama, sesuaikan sesuai kebutuhan */
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    /* Streamlit's main header/sidebar container */
+    .st-emotion-cache-nahz7x.e1nzilvr4 {
         background-color: #2c3034;
         padding: 1rem;
         border-radius: 0.5rem;
@@ -154,16 +157,15 @@ if uploaded_file_object is not None:
             original_filename = uploaded_file_object.name
             unique_id = uuid.uuid4().hex
             _, ext = os.path.splitext(original_filename)
-            github_filename = f"{unique_id}{ext}" # Nama file yang akan disimpan di GitHub
+            github_filename = f"{unique_id}{ext}" 
             github_filepath = f"{GITHUB_UPLOAD_PATH}/{github_filename}"
 
             try:
-                # Mengunggah file ke GitHub
                 repo.create_file(
                     path=github_filepath,
                     message=f"Upload {github_filename} from Streamlit app",
-                    content=uploaded_file_object.getvalue(), # Mendapatkan konten biner file
-                    branch="main" # Atau branch default Anda
+                    content=uploaded_file_object.getvalue(), 
+                    branch="main" 
                 )
                 st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
                 
@@ -179,7 +181,6 @@ st.markdown("---")
 # --- Bagian Galeri ---
 st.header("Koleksi Foto")
 
-# Mendapatkan daftar file dari repositori GitHub
 image_files_github = []
 try:
     contents = repo.get_contents(GITHUB_UPLOAD_PATH)
@@ -187,9 +188,7 @@ try:
         if content_file.type == "file" and allowed_file(content_file.name):
             image_files_github.append(content_file.name)
     
-    # Sort files by the SHA of the commit that last modified them (approximation of creation/upload time)
-    # This is more complex than local file mtime, so we'll just sort alphabetically for simplicity.
-    image_files_github.sort(reverse=True) # Sort alfabetis descending
+    image_files_github.sort(reverse=True) 
     
 except Exception as e:
     st.error(f"Gagal mengambil daftar foto dari GitHub: {e}")
@@ -224,8 +223,6 @@ else:
 
     for image_name in image_files_github:
         with cols[col_idx]:
-            # Dapatkan URL mentah untuk gambar dari GitHub
-            # Format URL mentah: https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path_to_file}
             image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
             
             try:
@@ -264,9 +261,7 @@ else:
             for filename_to_delete in st.session_state.selected_for_delete:
                 github_filepath_to_delete = f"{GITHUB_UPLOAD_PATH}/{filename_to_delete}"
                 try:
-                    # Dapatkan referensi file di GitHub
                     file_content = repo.get_contents(github_filepath_to_delete)
-                    # Hapus file dari GitHub
                     repo.delete_file(
                         path=file_content.path,
                         message=f"Delete {filename_to_delete} from Streamlit app",
@@ -285,7 +280,7 @@ else:
 
             st.session_state.delete_mode = False
             st.session_state.selected_for_delete = set()
-            st.rerun() # Refresh halaman setelah penghapusan
+            st.rerun() 
     elif st.session_state.delete_mode and not st.session_state.selected_for_delete:
         st.info("Pilih foto untuk mengaktifkan tombol hapus.")
 
