@@ -4,7 +4,8 @@ from PIL import Image
 import uuid
 from datetime import datetime
 from github import Github # Import PyGithub
-from dotenv import load_dotenv # Untuk memuat variabel lingkungan dari .env
+from dotenv import load_dotenv
+load_dotenv() # Ini memuat variabel dari .env
 
 # Muat variabel lingkungan jika berjalan secara lokal
 load_dotenv() 
