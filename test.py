@@ -35,7 +35,7 @@ st.markdown(
     .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
         background-color: #2c3034;
         padding: 1rem;
-        border-radius: 0.5rem;
+        border-radius: 5rem;
     }
     h1, h2, h3, h4, h5, h6 {
         color: #e9ecef;
