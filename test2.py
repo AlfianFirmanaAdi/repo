@@ -232,14 +232,6 @@ st.markdown(
         width: 100%;
         display: block;
     } */
-    
-    /* Menghilangkan border dari kontainer Streamlit utama yang mungkin tumpang tindih */
-    /* Ini penting untuk menghilangkan border default yang mungkin dibuat oleh Streamlit untuk st.container */
-    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
-    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
-        border: none !important;
-        box-shadow: none !important;
-    }
         .gallery-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
