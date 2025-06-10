@@ -127,6 +127,9 @@ st.header("Bagikan Foto ke Galeri WDF")
 # Inisialisasi session state untuk file uploader jika belum ada
 if 'uploader_key_counter' not in st.session_state:
     st.session_state.uploader_key_counter = 0
+# Inisialisasi session state untuk deskripsi gambar jika belum ada
+if 'image_descriptions' not in st.session_state:
+    st.session_state.image_descriptions = {}
 
 uploaded_file_object = st.file_uploader(
     f"Pilih Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
@@ -152,6 +155,10 @@ if uploaded_file_object is not None:
             try:
                 with open(file_path, "wb") as f:
                     f.write(uploaded_file_object.getbuffer())
+                
+                # Inisialisasi deskripsi untuk gambar yang baru diunggah
+                st.session_state.image_descriptions[unique_filename] = "" 
+                
                 st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
                 
                 # Increment counter untuk mereset file uploader pada rerun berikutnya
@@ -186,6 +193,17 @@ else:
         st.session_state.delete_mode = False
     if 'selected_for_delete' not in st.session_state:
         st.session_state.selected_for_delete = set()
+    
+    # Sinkronisasi deskripsi: hapus deskripsi untuk file yang tidak ada lagi
+    # Dan inisialisasi deskripsi kosong untuk file baru jika ada
+    current_files_set = set(image_files)
+    st.session_state.image_descriptions = {
+        k: v for k, v in st.session_state.image_descriptions.items()
+        if k in current_files_set
+    }
+    for img_file in image_files:
+        if img_file not in st.session_state.image_descriptions:
+            st.session_state.image_descriptions[img_file] = "" # Inisialisasi deskripsi kosong untuk gambar baru
 
     col_btn1, col_btn2 = st.columns([1, 5])
     with col_btn1:
@@ -216,9 +234,22 @@ else:
             try:
                 img = Image.open(file_path)
                 
-                # Gunakan st.container untuk membungkus gambar dan checkbox
-                    with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    st.image(img, caption=image_name, use_container_width=true) # Ini akan menyesuaikan lebar gambar dengan kontainernya 
+                with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
+                    # Perbaikan: Mengganti use_column_width dengan use_container_width
+                    # Menampilkan gambar tanpa caption default
+                    st.image(img, use_container_width=True) 
+
+                    # Input teks untuk deskripsi
+                    current_description = st.session_state.image_descriptions.get(image_name, "")
+                    new_description = st.text_input(
+                        "Deskripsi:",
+                        value=current_description,
+                        key=f"description_{image_name}" # Kunci unik untuk setiap input
+                    )
+                    # Perbarui deskripsi jika ada perubahan
+                    if new_description != current_description:
+                        st.session_state.image_descriptions[image_name] = new_description
+                        st.rerun() # Rerun untuk memperbarui tampilan (opsional, bisa juga tanpa rerun jika tidak ada efek samping besar)
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
@@ -232,7 +263,7 @@ else:
 
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name}: {e}")
-        
+            
         col_idx = (col_idx + 1) % num_cols
 
     if st.session_state.delete_mode and st.session_state.selected_for_delete:
@@ -262,6 +293,9 @@ else:
                 if os.path.exists(file_path_abs):
                     try:
                         os.remove(file_path_abs)
+                        # Hapus deskripsi terkait dari session state
+                        if filename_to_delete in st.session_state.image_descriptions:
+                            del st.session_state.image_descriptions[filename_to_delete]
                         deleted_count += 1
                     except Exception as e:
                         error_count += 1
