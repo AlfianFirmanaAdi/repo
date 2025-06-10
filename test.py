@@ -101,7 +101,7 @@ st.markdown(
         width: 100%;
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
-        border-radius: 0.3rem;
+        border-radius: 5rem;
     }
     .footer {
         text-align: center;
