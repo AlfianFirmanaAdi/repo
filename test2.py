@@ -303,7 +303,7 @@ if st.session_state.add_photo_mode:
                     content=content_to_upload,
                     branch="main"
                 )
-                st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+                st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
                 
                 st.session_state.image_captions[github_filename] = new_photo_caption
                 save_captions_to_github(st.session_state.image_captions)
@@ -339,9 +339,10 @@ if not image_files_github:
 else:
     # --- Tombol Mode Hapus dan Edit ---
     # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
-    col_gallery_actions = st.columns([1, 1, 3]) # Kolom untuk Hapus, Edit, dan kolom kosong untuk mendorong tombol ke kanan
+    # [3] untuk kolom kosong yang mendorong, [1] untuk Pilih Hapus, [1] untuk Edit Caption
+    col_gallery_actions = st.columns([3, 1, 1])
     
-    with col_gallery_actions[0]:
+    with col_gallery_actions[1]: # Tempatkan Pilih Hapus di kolom kedua
         # Tombol Toggle Hapus
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
@@ -355,7 +356,7 @@ else:
                 st.session_state.delete_mode = True
                 st.rerun()
 
-    with col_gallery_actions[1]:
+    with col_gallery_actions[2]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
         # Tombol Toggle Edit
         if st.session_state.edit_mode:
             if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
@@ -368,7 +369,7 @@ else:
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # Kolom ketiga col_gallery_actions[2] akan kosong untuk mendorong tombol ke kanan
+    # Kolom pertama col_gallery_actions[0] akan kosong untuk mendorong tombol ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
