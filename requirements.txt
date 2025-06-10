@@ -1,5 +1,7 @@
 streamlit
 Pillow
+pillow-heif
 PyGithub
+pillow-heif
 python-dotenv
 pillow-heif
