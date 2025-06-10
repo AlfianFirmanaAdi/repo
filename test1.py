@@ -293,7 +293,7 @@ st.markdown("---")
 st.markdown(
     f"""
     <div class="footer">
-        <p>&copy; {datetime.now().year} Galeri WDF. Dibuat untuk Kenangan.</p>
+        <p>&copy; {datetime.now().year} Galeri WDF.</p>
     </div>
     """,
     unsafe_allow_html=True
