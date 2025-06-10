@@ -205,33 +205,35 @@ st.markdown(
         border-color: #495057;
     }
 
-    /* *** PENDEKATAN 2: TARGETKAN IMG DI DALAM KOLOM (MUNGKIN RAPUH) *** */
-    .st-emotion-cache-10pw50 > div > div > div > img { /* Ganti st-emotion-cache-10pw50 jika perlu */
-        border: 1px solid #495057;
+    /* Gaya untuk container setiap foto */
+    /* Targetkan class yang Streamlit gunakan untuk st.container() */
+    /* st-emotion-cache-16i0pjw adalah class umum untuk st.container() tanpa border=True */
+    /* Jika ini tidak berfungsi, Anda perlu inspect element di browser untuk class yang tepat */
+    div.st-emotion-cache-16i0pjw { /* Sesuaikan class ini jika perlu. Contoh: div.st-emotion-cache-1r6zp11 */
+        border: 1px solid #495057; /* Warna border */
         border-radius: 0.3rem;
-        margin-bottom: 1rem;
-        box-sizing: border-box;
-        padding: 0.5rem;
-        background-color: #2c3034;
+        margin-bottom: 1rem; /* Jarak antar foto ke bawah */
+        padding: 0.5rem; /* Padding di dalam border untuk konten */
+        background-color: #2c3034; /* Warna latar belakang di dalam border */
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2); /* Efek bayangan */
+    }
+    div.st-emotion-cache-16i0pjw img { /* Target gambar di dalam container */
+        height: 200px; /* Fixed height for consistency */
+        object-fit: cover; /* Crop to fill */
+        border-radius: 0.3rem; /* Radius gambar agar sesuai container */
+        width: 100%; /* Pastikan gambar mengisi container */
+        display: block; /* Menghilangkan spasi ekstra di bawah gambar */
+    }
+    
+    /* Ini adalah selektor yang harus dihapus atau diabaikan jika div.st-emotion-cache-16i0pjw img sudah mengontrol semua */
+    .stImage > img {
         object-fit: cover;
+        border-radius: 0.3rem;
         width: 100%;
-        height: auto; /* Biarkan tinggi menyesuaikan aspek rasio */
         display: block;
     }
-
-    /* Gaya untuk container setiap foto (jika Anda masih ingin menggunakannya) */
-    div.st-emotion-cache-16i0pjw {
-        margin-bottom: 1rem;
-    }
-    div.st-emotion-cache-16i0pjw img {
-        height: auto; /* Biarkan tinggi otomatis jika border di img */
-        object-fit: cover;
-        border-radius: 0.3rem;
-        width: 100%;
-        display: block;
-    }
-
-    /* Menghilangkan border default dari kontainer Streamlit utama */
+    
+    /* Menghilangkan border dari kontainer Streamlit utama yang mungkin tumpang tindih */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
         border: none !important;
@@ -263,7 +265,7 @@ st.markdown("---") # Garis pemisah untuk kejelasan
 # Input Caption
 # Disable jika mode edit atau delete sedang aktif
 upload_widgets_disabled = st.session_state.edit_mode or st.session_state.delete_mode
-new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input",
+new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input", 
                                   disabled=upload_widgets_disabled)
 
 # File Uploader
@@ -302,7 +304,7 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widget
             st.info("Mendeteksi file HEIC. Mencoba mengonversi ke JPEG...")
             try:
                 img_bytes = uploaded_file_object.getvalue()
-
+                
                 try:
                     temp_img_info = Image.open(BytesIO(img_bytes))
                     st.info(f"Pillow berhasil mengidentifikasi file HEIC: {temp_img_info.format}, {temp_img_info.size}")
@@ -344,5 +346,202 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widget
                 branch="main"
             )
             st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
+            
+            # --- START OF PREVIOUSLY TRUNCATED CODE ---
+            st.session_state.image_captions[github_filename] = new_photo_caption
+            save_captions_to_github(st.session_state.image_captions)
 
-            st.session_state.image_captions
+            st.session_state.uploader_key_counter += 1
+            st.rerun()
+            # --- END OF PREVIOUSLY TRUNCATED CODE ---
+        except Exception as e:
+            st.error(f"Gagal mengunggah foto ke GitHub: {e}")
+            st.exception(e)
+st.markdown("---")
+
+
+# --- Bagian Galeri ---
+st.header("Koleksi Foto")
+
+# Muat captions setelah GitHub API diinisialisasi
+if not st.session_state.image_captions: # Hanya muat jika belum ada data atau masih kosong
+    st.session_state.image_captions = load_captions_from_github()
+
+image_files_github = []
+try:
+    contents = repo.get_contents(GITHUB_UPLOAD_PATH)
+    for content_file in contents:
+        if content_file.type == "file" and allowed_file(content_file.name) and content_file.name != "captions.json":
+            image_files_github.append(content_file.name)
+
+    image_files_github.sort(reverse=True)
+
+except Exception as e:
+    st.error(f"Gagal mengambil daftar foto dari GitHub: {e}")
+    st.info("Ini mungkin karena folder 'gallery_images' belum ada in your repository, or other permission/connection issues.")
+    st.exception(e)
+
+if not image_files_github:
+    st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
+else:
+    # --- Tombol Mode Hapus dan Edit ---
+    # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
+    # [1] untuk Pilih Hapus, [rasio besar] untuk ruang kosong, [1] untuk Edit Caption
+    col_gallery_actions = st.columns([1, 6, 1]) # Ini adalah baris yang menentukan posisi tombol
+
+    with col_gallery_actions[0]: # Tempatkan Pilih Hapus di kolom pertama (kiri)
+        # Tombol Toggle Hapus
+        if st.session_state.delete_mode:
+            if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
+                st.session_state.delete_mode = False
+                st.session_state.selected_for_delete = set()
+                st.rerun()
+        else:
+            # Disable jika mode edit aktif
+            delete_button_disabled = st.session_state.edit_mode 
+            if st.button("🗑️ Pilih Hapus", key="toggle_delete_mode", disabled=delete_button_disabled):
+                st.session_state.delete_mode = True
+                st.rerun()
+
+    with col_gallery_actions[2]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
+        # Tombol Toggle Edit
+        if st.session_state.edit_mode:
+            if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
+                st.session_state.edit_mode = False
+                st.session_state.selected_for_edit = None
+                st.rerun()
+        else:
+            # Disable jika mode hapus aktif
+            edit_button_disabled = st.session_state.delete_mode 
+            if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
+                st.session_state.edit_mode = True
+                st.rerun()
+    # Kolom kedua col_gallery_actions[1] akan kosong untuk mendorong tombol Edit ke kanan
+
+
+    # --- Tampilan Form Edit Caption Global ---
+    if st.session_state.edit_mode and st.session_state.selected_for_edit:
+        st.markdown("---")
+        st.subheader(f"Edit Caption: {st.session_state.selected_for_edit}")
+        
+        current_caption_for_edit = st.session_state.image_captions.get(st.session_state.selected_for_edit, "Tidak ada caption")
+        new_caption_edit_global = st.text_input(
+            "Tulis Caption Baru:",
+            value=current_caption_for_edit,
+            key=f"edit_caption_global_input"
+        )
+        col_save, col_cancel = st.columns(2)
+        with col_save:
+            if st.button("✅ Simpan Perubahan", key="save_edited_caption_global"):
+                st.session_state.image_captions[st.session_state.selected_for_edit] = new_caption_edit_global
+                save_captions_to_github(st.session_state.image_captions)
+                st.session_state.edit_mode = False
+                st.session_state.selected_for_edit = None
+                st.rerun()
+        with col_cancel:
+            if st.button("❌ Batal", key="cancel_edit_caption_global"):
+                st.session_state.edit_mode = False
+                st.session_state.selected_for_edit = None
+                st.rerun()
+        st.markdown("---")
+
+    # Pesan mode
+    if st.session_state.delete_mode:
+        st.warning("Pilih foto yang ingin Anda hapus. Klik lagi untuk membatalkan pilihan.")
+    elif st.session_state.edit_mode and not st.session_state.selected_for_edit:
+        st.info("Pilih satu foto untuk mengedit caption-nya.")
+    elif st.session_state.edit_mode and st.session_state.selected_for_edit:
+        st.info(f"Anda sedang mengedit caption untuk: {st.session_state.selected_for_edit}")
+
+    num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4)
+
+    cols = st.columns(num_cols)
+    col_idx = 0
+
+    for image_name in image_files_github:
+        with cols[col_idx]:
+            image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
+            
+            try:
+                # Menggunakan st.container() untuk membungkus setiap item galeri
+                with st.container(): # Ini adalah container yang akan mendapatkan border dari CSS
+                    st.image(image_url, use_container_width=True)
+
+                    current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
+                    st.markdown(f"**Caption:** {current_caption}")
+
+                    if st.session_state.delete_mode:
+                        checkbox_key = f"delete_cb_{image_name}"
+                        is_checked = image_name in st.session_state.selected_for_delete
+                        
+                        if st.checkbox(f"Pilih untuk hapus", value=is_checked, key=checkbox_key):
+                            st.session_state.selected_for_delete.add(image_name)
+                        else:
+                            if image_name in st.session_state.selected_for_delete:
+                                st.session_state.selected_for_delete.remove(image_name)
+                    elif st.session_state.edit_mode:
+                        radio_key = f"select_edit_{image_name}"
+                        if st.radio("Pilih Foto Ini", (image_name, ), key=radio_key, index=None):
+                            st.session_state.selected_for_edit = image_name
+                            st.rerun()
+            except Exception as e:
+                st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
+                st.exception(e)
+
+        col_idx = (col_idx + 1) % num_cols
+
+    if st.session_state.delete_mode and st.session_state.selected_for_delete:
+        st.markdown("---")
+        st.markdown(
+            f"<h3 style='text-align: center; color: #e9ecef;'>{len(st.session_state.selected_for_delete)} Foto Terpilih</h3>",
+            unsafe_allow_html=True
+        )
+        if st.button(
+            f"Hapus {len(st.session_state.selected_for_delete)} Foto Terpilih",
+            key="confirm_delete",
+            type="primary"
+        ):
+            deleted_count = 0
+            error_count = 0
+
+            for filename_to_delete in st.session_state.selected_for_delete:
+                github_filepath_to_delete = f"{GITHUB_UPLOAD_PATH}/{filename_to_delete}"
+                try:
+                    file_content = repo.get_contents(github_filepath_to_delete)
+                    repo.delete_file(
+                        path=file_content.path,
+                        message=f"Delete {filename_to_delete} from Streamlit app",
+                        sha=file_content.sha,
+                        branch="main"
+                    )
+                    if filename_to_delete in st.session_state.image_captions:
+                        del st.session_state.image_captions[filename_to_delete]
+                    deleted_count += 1
+                except Exception as e:
+                    error_count += 1
+                    st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
+                    st.exception(e)
+
+            save_captions_to_github(st.session_state.image_captions)
+
+            if deleted_count > 0:
+                st.success(f'{deleted_count} foto berhasil dihapus dari GitHub.')
+            if error_count > 0:
+                st.error(f'{error_count} foto gagal dihapus atau tidak ditemukan.')
+
+            st.session_state.delete_mode = False
+            st.session_state.selected_for_delete = set()
+            st.rerun()
+    elif st.session_state.delete_mode and not st.session_state.selected_for_delete:
+        st.info("Pilih foto untuk mengaktifkan tombol hapus.")
+
+# --- Footer ---
+st.markdown("---")
+st.markdown(
+    f"""
+    <div class="footer">
+        <p>&copy; {datetime.now().year} Galeri WDF. Dibuat untuk Kenangan.</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
