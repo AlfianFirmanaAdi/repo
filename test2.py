@@ -240,6 +240,27 @@ st.markdown(
         border: none !important;
         box-shadow: none !important;
     }
+        .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    .gallery-item {
+        background-color: #2c3034;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem;
+    }
+    .gallery-item img {
+        width: 100%;
+        height: 200px; /* Fixed height for consistency */
+        object-fit: cover; /* Crop to fill */
+        border-radius: 0.3rem;
 
     .footer {
         text-align: center;
