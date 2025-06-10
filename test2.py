@@ -204,19 +204,6 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
-
-    /* Gaya untuk container setiap foto */
-    /* Targetkan class yang Streamlit gunakan untuk st.container() */
-    /* st-emotion-cache-16i0pjw adalah class umum untuk st.container() tanpa border=True */
-    /* Jika ini tidak berfungsi, Anda perlu inspect element di browser untuk class yang tepat */
-    div.st-emotion-cache-16i0pjw {
-        border: 1px solid #495057; /* Warna border */
-        border-radius: 0.3rem;
-        margin-bottom: 1rem; /* Jarak antar foto ke bawah */
-        padding: 0.5rem; /* Padding di dalam border untuk konten */
-        background-color: #2c3034; /* Warna latar belakang di dalam border */
-        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
-    }
     div.st-emotion-cache-16i0pjw img { /* Target gambar di dalam container */
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
