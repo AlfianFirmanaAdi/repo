@@ -196,8 +196,9 @@ st.title("🏕️ Galeri WDF")
 st.markdown("---")
 
 # --- Inisialisasi Session State untuk Mode Unggah dan Caption ---
-if 'add_photo_mode' not in st.session_state:
-    st.session_state.add_photo_mode = False
+# Kita tidak lagi memerlukan add_photo_mode karena form selalu terlihat
+# if 'add_photo_mode' not in st.session_state:
+#     st.session_state.add_photo_mode = False
 if 'image_captions' not in st.session_state:
     st.session_state.image_captions = load_captions_from_github()
 if 'edit_mode' not in st.session_state:
@@ -208,112 +209,104 @@ if 'delete_mode' not in st.session_state:
     st.session_state.delete_mode = False
 
 
-# --- Bagian Tambah Foto (Tersembunyi di balik tombol) ---
-st.header("Tambahkan Foto Baru")
+# --- Bagian Unggah Foto (Selalu Terlihat) ---
+st.header("Unggah Foto Baru")
+st.markdown("---") # Garis pemisah untuk kejelasan
 
-# Tombol untuk menampilkan/menyembunyikan form upload
-if st.session_state.add_photo_mode:
-    if st.button("⬅️ Batal Tambah Foto", key="cancel_add_photo"):
-        st.session_state.add_photo_mode = False
-        st.rerun()
-else:
-    # Disable tombol ini jika mode edit atau delete sedang aktif
-    add_button_disabled = st.session_state.edit_mode or st.session_state.delete_mode
-    if st.button("➕ Tambahkan Foto", key="toggle_add_photo", disabled=add_button_disabled):
-        st.session_state.add_photo_mode = True
-        st.rerun()
+# Input Caption
+new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input", 
+                                  disabled=(st.session_state.edit_mode or st.session_state.delete_mode))
 
-# Form Upload hanya tampil jika add_photo_mode aktif
-if st.session_state.add_photo_mode:
-    st.markdown("---")
-    st.subheader("Form Unggah Foto")
-    
-    new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input")
+# File Uploader
+uploaded_file_object = st.file_uploader(
+    f"Pilih Berkas Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
+    type=list(ALLOWED_EXTENSIONS),
+    key=f"file_uploader_new_photo_{st.session_state.uploader_key_counter}",
+    disabled=(st.session_state.edit_mode or st.session_state.delete_mode)
+)
 
-    uploaded_file_object = st.file_uploader(
-        f"Pilih Berkas Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
-        type=list(ALLOWED_EXTENSIONS),
-        key=f"file_uploader_new_photo_{st.session_state.uploader_key_counter}"
-    )
+# Pesan untuk File HEIC
+st.info("""
+    **Catatan Penting untuk File HEIC (.heic):**
+    Jika Anda mengunggah file `.HEIC` dan mengalami masalah (misalnya, gambar tidak muncul atau ada error),
+    mohon konversi file `.HEIC` Anda ke format `.JPG` atau `.PNG` terlebih dahulu menggunakan aplikasi pengeditan foto
+    atau konverter online sebelum mengunggahnya. Terima kasih!
+""")
 
-    st.info("""
-        **Catatan Penting untuk File HEIC (.heic):**
-        Jika Anda mengunggah file `.HEIC` dan mengalami masalah (misalnya, gambar tidak muncul atau ada error),
-        mohon konversi file `.HEIC` Anda ke format `.JPG` atau `.PNG` terlebih dahulu menggunakan aplikasi pengeditan foto
-        atau konverter online sebelum mengunggahnya. Terima kasih!
-    """)
+# Tombol Simpan Foto
+# Disable jika mode edit atau delete sedang aktif
+save_button_disabled = st.session_state.edit_mode or st.session_state.delete_mode
+if st.button("💾 Simpan Foto", key="save_photo_button", disabled=save_button_disabled):
+    if uploaded_file_object is None:
+        st.error("Mohon pilih berkas foto sebelum menyimpan.")
+    elif uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        st.error(f"Ukuran file terlalu besar. Maksimal {MAX_FILE_SIZE_MB}MB.")
+    elif not allowed_file(uploaded_file_object.name):
+        st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
+    else:
+        original_filename = uploaded_file_object.name
+        unique_id = uuid.uuid4().hex
+        base_name, ext = os.path.splitext(original_filename)
 
-    if st.button("💾 Simpan Foto", key="save_photo_button"):
-        if uploaded_file_object is None:
-            st.error("Mohon pilih berkas foto sebelum menyimpan.")
-        elif uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
-            st.error(f"Ukuran file terlalu besar. Maksimal {MAX_FILE_SIZE_MB}MB.")
-        elif not allowed_file(uploaded_file_object.name):
-            st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
-        else:
-            original_filename = uploaded_file_object.name
-            unique_id = uuid.uuid4().hex
-            base_name, ext = os.path.splitext(original_filename)
+        content_to_upload = None
+        file_mimetype = None
 
-            content_to_upload = None
-            file_mimetype = None
-
-            if ext.lower() == '.heic':
-                st.info("Mendeteksi file HEIC. Mencoba mengonversi ke JPEG...")
-                try:
-                    img_bytes = uploaded_file_object.getvalue()
-                    
-                    try:
-                        temp_img_info = Image.open(BytesIO(img_bytes))
-                        st.info(f"Pillow berhasil mengidentifikasi file HEIC: {temp_img_info.format}, {temp_img_info.size}")
-                        temp_img_info.close()
-                    except Exception as img_id_e:
-                        st.warning(f"Pillow TIDAK dapat mengidentifikasi file HEIC sebagai gambar yang valid: {img_id_e}. Ini mungkin file rusak atau format tidak sepenuhnya didukung.")
-                        st.stop()
-
-                    img = Image.open(BytesIO(img_bytes))
-                    output_buffer = BytesIO()
-                    img.save(output_buffer, format="jpeg", quality=90)
-                    output_buffer.seek(0)
-
-                    github_filename = f"{unique_id}.jpeg"
-                    content_to_upload = output_buffer.getvalue()
-                    file_mimetype = "image/jpeg"
-                    st.success("Konversi HEIC ke JPEG berhasil!")
-                except Exception as e:
-                    st.error(f"Gagal memproses atau mengonversi file HEIC: {e}. Pastikan 'pillow-heif' terinstal dan file HEIC tidak rusak.")
-                    st.exception(e)
-                    st.stop()
-            else:
-                github_filename = f"{unique_id}{ext}"
-                content_to_upload = uploaded_file_object.getvalue()
-                file_mimetype = uploaded_file_object.type
-                st.info(f"Mengunggah file {ext} asli.")
-
-            if content_to_upload is None:
-                st.error("Tidak ada konten yang siap untuk diunggah setelah pemrosesan.")
-                st.stop()
-
-            github_filepath = f"{GITHUB_UPLOAD_PATH}/{github_filename}"
-
+        if ext.lower() == '.heic':
+            st.info("Mendeteksi file HEIC. Mencoba mengonversi ke JPEG...")
             try:
-                repo.create_file(
-                    path=github_filepath,
-                    message=f"Upload {github_filename} from Streamlit app",
-                    content=content_to_upload,
-                    branch="main"
-                )
-                st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+                img_bytes = uploaded_file_object.getvalue()
                 
-                st.session_state.image_captions[github_filename] = new_photo_caption
-                save_captions_to_github(st.session_state.image_captions)
+                try:
+                    temp_img_info = Image.open(BytesIO(img_bytes))
+                    st.info(f"Pillow berhasil mengidentifikasi file HEIC: {temp_img_info.format}, {temp_img_info.size}")
+                    temp_img_info.close()
+                except Exception as img_id_e:
+                    st.warning(f"Pillow TIDAK dapat mengidentifikasi file HEIC sebagai gambar yang valid: {img_id_e}. Ini mungkin file rusak atau format tidak sepenuhnya didukung.")
+                    st.stop()
 
-                st.session_state.uploader_key_counter += 1
-                st.session_state.add_photo_mode = False
-                st.rerun()
+                img = Image.open(BytesIO(img_bytes))
+                output_buffer = BytesIO()
+                img.save(output_buffer, format="jpeg", quality=90)
+                output_buffer.seek(0)
+
+                github_filename = f"{unique_id}.jpeg"
+                content_to_upload = output_buffer.getvalue()
+                file_mimetype = "image/jpeg"
+                st.success("Konversi HEIC ke JPEG berhasil!")
             except Exception as e:
-                st.error(f"Gagal mengunggah foto ke GitHub: {e}")
+                st.error(f"Gagal memproses atau mengonversi file HEIC: {e}. Pastikan 'pillow-heif' terinstal dan file HEIC tidak rusak.")
                 st.exception(e)
+                st.stop()
+        else:
+            github_filename = f"{unique_id}{ext}"
+            content_to_upload = uploaded_file_object.getvalue()
+            file_mimetype = uploaded_file_object.type
+            st.info(f"Mengunggah file {ext} asli.")
+
+        if content_to_upload is None:
+            st.error("Tidak ada konten yang siap untuk diunggah setelah pemrosesan.")
+            st.stop()
+
+        github_filepath = f"{GITHUB_UPLOAD_PATH}/{github_filename}"
+
+        try:
+            repo.create_file(
+                path=github_filepath,
+                message=f"Upload {github_filename} from Streamlit app",
+                content=content_to_upload,
+                branch="main"
+            )
+            st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+            
+            st.session_state.image_captions[github_filename] = new_photo_caption
+            save_captions_to_github(st.session_state.image_captions)
+
+            st.session_state.uploader_key_counter += 1
+            # Tidak perlu mengubah add_photo_mode karena form selalu terlihat
+            st.rerun()
+        except Exception as e:
+            st.error(f"Gagal mengunggah foto ke GitHub: {e}")
+            st.exception(e)
 st.markdown("---")
 
 
@@ -339,9 +332,10 @@ if not image_files_github:
 else:
     # --- Tombol Mode Hapus dan Edit ---
     # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
-    col_gallery_actions = st.columns([1, 1, 3]) # Kolom untuk Hapus, Edit, dan kolom kosong untuk mendorong tombol ke kanan
+    # [3] untuk kolom kosong yang mendorong, [1] untuk Pilih Hapus, [1] untuk Edit Caption
+    col_gallery_actions = st.columns([3, 1, 1])
     
-    with col_gallery_actions[0]:
+    with col_gallery_actions[1]: # Tempatkan Pilih Hapus di kolom kedua
         # Tombol Toggle Hapus
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
@@ -350,12 +344,12 @@ else:
                 st.rerun()
         else:
             # Disable jika mode tambah atau edit aktif
-            delete_button_disabled = st.session_state.add_photo_mode or st.session_state.edit_mode
+            delete_button_disabled = st.session_state.add_photo_mode or st.session_state.edit_mode # add_photo_mode sekarang selalu False
             if st.button("🗑️ Pilih Hapus", key="toggle_delete_mode", disabled=delete_button_disabled):
                 st.session_state.delete_mode = True
                 st.rerun()
 
-    with col_gallery_actions[1]:
+    with col_gallery_actions[2]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
         # Tombol Toggle Edit
         if st.session_state.edit_mode:
             if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
@@ -364,11 +358,11 @@ else:
                 st.rerun()
         else:
             # Disable jika mode tambah atau hapus aktif
-            edit_button_disabled = st.session_state.add_photo_mode or st.session_state.delete_mode
+            edit_button_disabled = st.session_state.add_photo_mode or st.session_state.delete_mode # add_photo_mode sekarang selalu False
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # Kolom ketiga col_gallery_actions[2] akan kosong untuk mendorong tombol ke kanan
+    # Kolom pertama col_gallery_actions[0] akan kosong untuk mendorong tombol ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
