@@ -18,15 +18,19 @@ GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
-    st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur.")
+    st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur. Pastikan sudah ada di Streamlit Secrets.")
     st.stop()
 
 # Inisialisasi GitHub API
 try:
     g = Github(GITHUB_TOKEN)
     repo = g.get_user(GITHUB_REPO_OWNER).get_repo(GITHUB_REPO_NAME)
+    # Coba akses konten untuk memastikan koneksi dan repo valid
+    # Ini akan memicu error jika repo atau path tidak ditemukan
+    repo.get_contents(GITHUB_UPLOAD_PATH)
 except Exception as e:
-    st.error(f"Gagal terhubung ke repositori GitHub. Pastikan token dan detail repositori benar: {e}")
+    st.error(f"Gagal terhubung ke repositori GitHub atau path '{GITHUB_UPLOAD_PATH}' tidak ditemukan. Pastikan token, detail repositori, dan folder '{GITHUB_UPLOAD_PATH}' di repo benar: {e}")
+    st.info(f"Detail error: {type(e).__name__}: {e}") # Tampilkan tipe error untuk debugging
     st.stop()
 
 
@@ -44,7 +48,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS Styling (tidak ada perubahan di sini dari versi terakhir) ---
+# --- CSS Styling ---
 st.markdown(
     """
     <style>
@@ -53,7 +57,7 @@ st.markdown(
         color: #e0e0e0;
     }
     section.main[data-testid="stSidebarContent"] + section.main {
-        max-width: 900px;
+        max-width: 900px; /* Lebar maksimal konten utama, sesuaikan sesuai kebutuhan */
         padding-left: 1rem;
         padding-right: 1rem;
     }
@@ -161,33 +165,50 @@ if uploaded_file_object is not None:
             base_name, ext = os.path.splitext(original_filename)
 
             # --- KODE UNTUK KONVERSI HEIC DIMULAI DI SINI ---
+            content_to_upload = None
+            file_mimetype = None
+
             if ext.lower() == '.heic':
+                st.info("Mendeteksi file HEIC. Mencoba mengonversi ke JPEG...")
                 try:
-                    # Membuka file HEIC menggunakan Pillow (membutuhkan pillow-heif)
-                    # uploaded_file_object.getvalue() mengembalikan konten biner file
-                    img = Image.open(BytesIO(uploaded_file_object.getvalue()))
+                    img_bytes = uploaded_file_object.getvalue()
+                    
+                    # Coba identifikasi gambar sebelum membuka untuk debugging
+                    try:
+                        temp_img_info = Image.open(BytesIO(img_bytes))
+                        st.info(f"Pillow berhasil mengidentifikasi file HEIC: {temp_img_info.format}, {temp_img_info.size}")
+                        temp_img_info.close() # Tutup agar tidak mengunci file
+                    except Exception as img_id_e:
+                        st.warning(f"Pillow TIDAK dapat mengidentifikasi file HEIC sebagai gambar yang valid: {img_id_e}. Ini mungkin file rusak atau format tidak sepenuhnya didukung.")
+                        st.stop() # Hentikan proses jika tidak teridentifikasi
 
-                    # Membuat buffer di memori untuk menyimpan gambar JPEG yang dikonversi
+                    img = Image.open(BytesIO(img_bytes)) # Buka lagi untuk konversi
+                    
                     output_buffer = BytesIO()
-                    # Menyimpan gambar yang dikonversi ke buffer sebagai JPEG
-                    img.save(output_buffer, format="jpeg")
-                    output_buffer.seek(0) # Mengatur posisi kembali ke awal buffer
+                    # Pastikan kualitas kompresi JPEG agar file tidak terlalu besar
+                    img.save(output_buffer, format="jpeg", quality=90) # kualitas 90%
+                    output_buffer.seek(0)
 
-                    # Mengatur nama file untuk GitHub menjadi .jpeg
                     github_filename = f"{unique_id}.jpeg"
-                    # Mengambil konten biner dari buffer
                     content_to_upload = output_buffer.getvalue()
-                    file_mimetype = "image/jpeg" # Mengatur MIME type baru
+                    file_mimetype = "image/jpeg"
+                    st.success("Konversi HEIC ke JPEG berhasil!")
                 except Exception as e:
-                    st.error(f"Gagal memproses file HEIC. Pastikan 'pillow-heif' terinstal: {e}")
-                    # Hentikan proses unggah jika konversi gagal
+                    st.error(f"Gagal memproses atau mengonversi file HEIC: {e}. Pastikan 'pillow-heif' terinstal dan file HEIC tidak rusak.")
+                    st.exception(e) # Menampilkan traceback lengkap
                     st.stop()
             else:
                 # Jika bukan HEIC, gunakan file asli apa adanya
                 github_filename = f"{unique_id}{ext}"
                 content_to_upload = uploaded_file_object.getvalue()
                 file_mimetype = uploaded_file_object.type
+                st.info(f"Mengunggah file {ext} asli.")
             # --- KODE UNTUK KONVERSI HEIC SELESAI DI SINI ---
+
+            # Pastikan content_to_upload tidak None karena error konversi
+            if content_to_upload is None:
+                st.error("Tidak ada konten yang siap untuk diunggah setelah pemrosesan.")
+                st.stop()
 
             github_filepath = f"{GITHUB_UPLOAD_PATH}/{github_filename}"
 
@@ -195,7 +216,7 @@ if uploaded_file_object is not None:
                 repo.create_file(
                     path=github_filepath,
                     message=f"Upload {github_filename} from Streamlit app",
-                    content=content_to_upload, # Gunakan konten yang sudah diproses/dikonversi
+                    content=content_to_upload,
                     branch="main"
                 )
                 st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
@@ -204,20 +225,23 @@ if uploaded_file_object is not None:
                 st.rerun()
             except Exception as e:
                 st.error(f"Gagal mengunggah foto ke GitHub: {e}")
+                st.exception(e) # Menampilkan traceback lengkap
 else:
     st.info("Pilih file di atas untuk mulai mengunggah.")
 
 st.markdown("---")
 
-# --- Bagian Galeri (tidak ada perubahan di sini dari versi terakhir) ---
+# --- Bagian Galeri ---
 st.header("Koleksi Foto")
 
 image_files_github = []
 try:
+    # Memastikan kita hanya mengambil file dari folder yang ditentukan
     contents = repo.get_contents(GITHUB_UPLOAD_PATH)
     for content_file in contents:
         # PENTING: Jika HEIC dikonversi ke JPEG, pastikan hanya menampilkan JPEG
         # Kita perlu allowed_file agar tetap memfilter file yang didukung oleh browser/st.image
+        # dan juga agar HEIC yang dikonversi ke JPEG tetap masuk
         if content_file.type == "file" and allowed_file(content_file.name):
             image_files_github.append(content_file.name)
 
@@ -225,6 +249,8 @@ try:
 
 except Exception as e:
     st.error(f"Gagal mengambil daftar foto dari GitHub: {e}")
+    st.info("Ini mungkin karena folder 'gallery_images' belum ada di repositori Anda, atau masalah izin/koneksi lainnya.")
+    st.exception(e)
 
 if not image_files_github:
     st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
@@ -256,8 +282,10 @@ else:
 
     for image_name in image_files_github:
         with cols[col_idx]:
+            # Dapatkan URL mentah untuk gambar dari GitHub
+            # Format URL mentah: https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path_to_file}
             image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
-
+            
             try:
                 with st.container():
                     st.image(image_url, use_container_width=True)
@@ -274,6 +302,7 @@ else:
 
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
+                st.exception(e) # Tampilkan traceback lengkap
 
         col_idx = (col_idx + 1) % num_cols
 
@@ -305,6 +334,7 @@ else:
                 except Exception as e:
                     error_count += 1
                     st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
+                    st.exception(e) # Tampilkan traceback lengkap
 
             if deleted_count > 0:
                 st.success(f'{deleted_count} foto berhasil dihapus dari GitHub.')
@@ -317,7 +347,7 @@ else:
     elif st.session_state.delete_mode and not st.session_state.selected_for_delete:
         st.info("Pilih foto untuk mengaktifkan tombol hapus.")
 
-# --- Footer (tidak ada perubahan di sini dari versi terakhir) ---
+# --- Footer ---
 st.markdown("---")
 st.markdown(
     f"""
