@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from PIL import Image
+from PIL import Image # Penting untuk memproses gambar
 import uuid
 from datetime import datetime
 from github import Github
@@ -19,7 +19,22 @@ GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME")
 GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk gambar
 GITHUB_CAPTIONS_FILE = f"{GITHUB_UPLOAD_PATH}/captions.json" # Lokasi file captions.json
 
-# Pastikan semua variabel lingkungan diatur
+# --- Inisialisasi Session State Global (PENTING: Harus di awal script) ---
+# Ini memastikan semua variabel session state ada sebelum digunakan oleh widget
+if 'uploader_key_counter' not in st.session_state:
+    st.session_state.uploader_key_counter = 0
+if 'image_captions' not in st.session_state:
+    st.session_state.image_captions = {} # Akan dimuat dari GitHub nanti
+if 'edit_mode' not in st.session_state:
+    st.session_state.edit_mode = False
+if 'selected_for_edit' not in st.session_state:
+    st.session_state.selected_for_edit = None
+if 'delete_mode' not in st.session_state:
+    st.session_state.delete_mode = False
+# --- Akhir Inisialisasi Session State Global ---
+
+
+# Pastikan semua variabel lingkungan diatur sebelum mencoba koneksi GitHub
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
     st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur. Pastikan sudah ada di Streamlit Secrets (jika di-deploy) atau di file .env (jika lokal).")
     st.stop()
@@ -28,6 +43,8 @@ if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
 try:
     g = Github(GITHUB_TOKEN)
     repo = g.get_user(GITHUB_REPO_OWNER).get_repo(GITHUB_REPO_NAME)
+    # Coba akses konten untuk memastikan koneksi dan repo valid
+    # Ini akan memicu error jika repo atau path tidak ditemukan
     repo.get_contents(GITHUB_UPLOAD_PATH)
 except Exception as e:
     st.error(f"Gagal terhubung ke repositori GitHub atau path '{GITHUB_UPLOAD_PATH}' tidak ditemukan. Pastikan token, detail repositori, dan folder '{GITHUB_UPLOAD_PATH}' di repo benar: {e}")
@@ -35,8 +52,8 @@ except Exception as e:
     st.stop()
 
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
-MAX_FILE_SIZE_MB = 32
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'} # HEIC tetap diizinkan untuk upload
+MAX_FILE_SIZE_MB = 32 # Max 32MB
 
 def allowed_file(filename):
     """Memeriksa apakah ekstensi file diizinkan."""
@@ -44,6 +61,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- Fungsi untuk Mengelola Caption di GitHub ---
+# Fungsi-fungsi ini memuat/menyimpan caption ke/dari GitHub, dan menggunakan session_state.image_captions
 def load_captions_from_github():
     """Memuat caption dari captions.json di GitHub."""
     try:
@@ -66,11 +84,11 @@ def save_captions_to_github(captions_data):
                 path=GITHUB_CAPTIONS_FILE,
                 message="Update captions.json from Streamlit app",
                 content=encoded_content,
-                sha=contents.sha,
+                sha=contents.sha, # SHA diperlukan untuk update
                 branch="main"
             )
             st.success("Caption berhasil diperbarui di GitHub.")
-        except Exception as e: # Jika file tidak ada, buat baru
+        except Exception as e: # Buat file baru jika belum ada
             repo.create_file(
                 path=GITHUB_CAPTIONS_FILE,
                 message="Create captions.json from Streamlit app",
@@ -195,34 +213,22 @@ st.markdown(
 st.title("🏕️ Galeri WDF")
 st.markdown("---")
 
-# --- Inisialisasi Session State untuk Mode Unggah dan Caption ---
-# Kita tidak lagi memerlukan add_photo_mode karena form selalu terlihat
-# if 'add_photo_mode' not in st.session_state:
-#     st.session_state.add_photo_mode = False
-if 'image_captions' not in st.session_state:
-    st.session_state.image_captions = load_captions_from_github()
-if 'edit_mode' not in st.session_state:
-    st.session_state.edit_mode = False
-if 'selected_for_edit' not in st.session_state:
-    st.session_state.selected_for_edit = None
-if 'delete_mode' not in st.session_state:
-    st.session_state.delete_mode = False
-
-
 # --- Bagian Unggah Foto (Selalu Terlihat) ---
 st.header("Unggah Foto Baru")
 st.markdown("---") # Garis pemisah untuk kejelasan
 
 # Input Caption
+# Disable jika mode edit atau delete sedang aktif
+upload_widgets_disabled = st.session_state.edit_mode or st.session_state.delete_mode
 new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input", 
-                                  disabled=(st.session_state.edit_mode or st.session_state.delete_mode))
+                                  disabled=upload_widgets_disabled)
 
 # File Uploader
 uploaded_file_object = st.file_uploader(
     f"Pilih Berkas Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
     type=list(ALLOWED_EXTENSIONS),
     key=f"file_uploader_new_photo_{st.session_state.uploader_key_counter}",
-    disabled=(st.session_state.edit_mode or st.session_state.delete_mode)
+    disabled=upload_widgets_disabled
 )
 
 # Pesan untuk File HEIC
@@ -234,9 +240,7 @@ st.info("""
 """)
 
 # Tombol Simpan Foto
-# Disable jika mode edit atau delete sedang aktif
-save_button_disabled = st.session_state.edit_mode or st.session_state.delete_mode
-if st.button("💾 Simpan Foto", key="save_photo_button", disabled=save_button_disabled):
+if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widgets_disabled):
     if uploaded_file_object is None:
         st.error("Mohon pilih berkas foto sebelum menyimpan.")
     elif uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
@@ -302,7 +306,6 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=save_button_d
             save_captions_to_github(st.session_state.image_captions)
 
             st.session_state.uploader_key_counter += 1
-            # Tidak perlu mengubah add_photo_mode karena form selalu terlihat
             st.rerun()
         except Exception as e:
             st.error(f"Gagal mengunggah foto ke GitHub: {e}")
@@ -312,6 +315,12 @@ st.markdown("---")
 
 # --- Bagian Galeri ---
 st.header("Koleksi Foto")
+
+# Muat captions setelah GitHub API diinisialisasi
+# Ini memastikan st.session_state.image_captions memiliki data yang sudah dimuat dari GitHub
+# jika ada di awal skrip
+if not st.session_state.image_captions: # Hanya muat jika belum ada data atau masih kosong
+    st.session_state.image_captions = load_captions_from_github()
 
 image_files_github = []
 try:
@@ -343,8 +352,8 @@ else:
                 st.session_state.selected_for_delete = set()
                 st.rerun()
         else:
-            # Disable jika mode tambah atau edit aktif
-            delete_button_disabled = st.session_state.add_photo_mode or st.session_state.edit_mode # add_photo_mode sekarang selalu False
+            # Disable jika mode edit aktif
+            delete_button_disabled = st.session_state.edit_mode 
             if st.button("🗑️ Pilih Hapus", key="toggle_delete_mode", disabled=delete_button_disabled):
                 st.session_state.delete_mode = True
                 st.rerun()
@@ -357,8 +366,8 @@ else:
                 st.session_state.selected_for_edit = None
                 st.rerun()
         else:
-            # Disable jika mode tambah atau hapus aktif
-            edit_button_disabled = st.session_state.add_photo_mode or st.session_state.delete_mode # add_photo_mode sekarang selalu False
+            # Disable jika mode hapus aktif
+            edit_button_disabled = st.session_state.delete_mode 
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
