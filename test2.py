@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from PIL import Image
+from PIL import Image # Penting untuk memproses gambar
 import uuid
 from datetime import datetime
 from github import Github
@@ -126,7 +126,7 @@ st.markdown(
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
+    .st-emotion-cache-nahz7x.e1nzilvr4 {
         background-color: #2c3034;
         padding: 1rem;
         border-radius: 0.5rem;
@@ -204,6 +204,19 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
+
+    /* Gaya untuk container setiap foto */
+    /* *** MODIFIKASI UNTUK BORDER FOTO DI SINI *** */
+    /* Targetkan class yang Streamlit gunakan untuk st.container() yang membungkus setiap gambar */
+    /* Periksa di browser dengan Inspect Element jika class ini berubah */
+    div.st-emotion-cache-16i0pjw { /* Ini adalah class umum untuk st.container() tanpa border=True */
+        border: 1px solid #495057; /* Warna border */
+        border-radius: 0.3rem;
+        margin-bottom: 1rem; /* Jarak antar foto ke bawah */
+        padding: 0.5rem; /* Padding di dalam border untuk konten */
+        background-color: #2c3034; /* Warna latar belakang di dalam border */
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2); /* Efek bayangan */
+    }
     div.st-emotion-cache-16i0pjw img { /* Target gambar di dalam container */
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
@@ -211,36 +224,22 @@ st.markdown(
         width: 100%; /* Pastikan gambar mengisi container */
         display: block; /* Menghilangkan spasi ekstra di bawah gambar */
     }
-    
-    /* Ini adalah selektor yang harus dihapus atau diabaikan jika div.st-emotion-cache-16i0pjw img sudah mengontrol semua */
-    /* .stImage > img {
+
+    /* Selektor tambahan jika diperlukan untuk gambar langsung dari st.image */
+    .stImage > img {
         object-fit: cover;
         border-radius: 0.3rem;
         width: 100%;
         display: block;
-    } */
-        .gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
     }
-    .gallery-item {
-        background-color: #2c3034;
-        border-radius: 0.5rem;
-        overflow: hidden;
-        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem;
+    
+    /* Menghilangkan border default dari kontainer Streamlit utama */
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
+    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
+        border: none !important;
+        box-shadow: none !important;
     }
-    .gallery-item img {
-        width: 100%;
-        height: 200px; /* Fixed height for consistency */
-        object-fit: cover; /* Crop to fill */
-        border-radius: 0.3rem;
-    }
+
     .footer {
         text-align: center;
         padding: 1.5rem 0;
@@ -251,30 +250,6 @@ st.markdown(
         bottom: 0;
         width: 100%;
     }
-    /* KODE BARU UNTUK BORDER PADA FOTO */
-    /* st.container() dalam Streamlit biasanya dirender sebagai div dengan class tertentu */
-    /* Kita bisa menargetkan elemen div yang dibuat oleh st.container() */
-    /* Class .st-emotion-cache-1r6dm7x adalah salah satu class yang sering muncul pada container */
-    /* Anda mungkin perlu memeriksa inspektur elemen browser Anda untuk memastikan class yang tepat */
-    div[data-testid="stVerticalBlock"] > div.st-emotion-cache-nahz7x { /* Ini menargetkan div yang membungkus container di dalam kolom */
-        border: 2px solid #6c757d; /* Warna abu-abu yang sedikit lebih gelap */
-        border-radius: 0.5rem; /* Menyesuaikan dengan border-radius container */
-        padding: 0.5rem; /* Tambahkan sedikit padding di dalam border */
-        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.3); /* Sedikit bayangan untuk menonjolkan */
-    }
-    /* Atau jika Anda ingin border langsung pada container Streamlit itu sendiri */
-    .st-emotion-cache-1r6dm7x { /* Ini adalah class umum untuk st.container() yang tidak memiliki border=True */
-        border: 2px solid #6c757d;
-        border-radius: 0.5rem;
-        padding: 0.5rem;
-        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.3);
-    }
-    /* Jika Anda menggunakan border=True pada st.container(), maka classnya akan berbeda */
-    /* Contoh: jika Anda menggunakan st.container(border=True), Streamlit akan menambahkan border secara default.
-       Untuk mengubah warnanya, Anda bisa menargetkan class yang diberikan Streamlit untuk border tersebut.
-       Seringkali itu adalah `.st-emotion-cache-fvw89x` atau sejenisnya.
-       Namun, untuk konsistensi, lebih baik tambahkan border secara manual seperti di atas. */
-
     </style>
     """,
     unsafe_allow_html=True
@@ -290,8 +265,8 @@ st.markdown("---") # Garis pemisah untuk kejelasan
 # Input Caption
 # Disable jika mode edit atau delete sedang aktif
 upload_widgets_disabled = st.session_state.edit_mode or st.session_state.delete_mode
-new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input",
-                                   disabled=upload_widgets_disabled)
+new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input", 
+                                  disabled=upload_widgets_disabled)
 
 # File Uploader
 uploaded_file_object = st.file_uploader(
@@ -370,7 +345,7 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widget
                 content=content_to_upload,
                 branch="main"
             )
-            st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+            st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
             
             st.session_state.image_captions[github_filename] = new_photo_caption
             save_captions_to_github(st.session_state.image_captions)
@@ -487,8 +462,8 @@ else:
             
             try:
                 # Menggunakan st.container() untuk membungkus setiap item galeri
-                # Streamlit akan menambahkan class CSS secara otomatis ke container ini
-                with st.container():
+                # st.container() secara internal akan dirender sebagai div dengan class unik oleh Streamlit
+                with st.container(): # Ini adalah container yang akan mendapatkan border dari CSS
                     st.image(image_url, use_container_width=True)
 
                     current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
