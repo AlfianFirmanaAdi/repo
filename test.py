@@ -34,7 +34,7 @@ st.markdown(
     /* Menggunakan kelas yang lebih spesifik untuk mencegah konflik */
     .st-emotion-cache-nahz7x.e1nzilvr4 { /* Streamlit's main header/sidebar container */
         background-color: #2c3034;
-        padding: 5rem;
+        padding: 20rem;
         border-radius: 20rem;
     }
     h1, h2, h3, h4, h5, h6 {
@@ -47,9 +47,9 @@ st.markdown(
     .stButton>button {
         background-color: #0d6efd;
         color: white;
-        border-radius: 0.5rem;
+        border-radius: 20rem;
         border: none;
-        padding: 0.6rem 1.2rem;
+        padding: 20rem 1.2rem;
         font-size: 1rem;
         cursor: pointer;
         transition: background-color 0.2s ease;
@@ -84,29 +84,29 @@ st.markdown(
     .gallery-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 1rem;
+        gap: 20rem;
     }
     .gallery-item {
         background-color: #2c3034;
-        border-radius: 5rem;
+        border-radius: 20rem;
         overflow: hidden;
         box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 5rem;
+        padding: 20rem;
     }
     .gallery-item img {
         width: 100%;
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
-        border-radius: 5rem;
+        border-radius: 20rem;
     }
     .footer {
         text-align: center;
         padding: 1.5rem 0;
-        margin-top: 3rem;
+        margin-top: 20rem;
         background-color: #1c1c1e;
         color: #adb5bd;
         position: relative;
