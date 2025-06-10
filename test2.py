@@ -6,8 +6,8 @@ from datetime import datetime
 from github import Github
 from dotenv import load_dotenv
 from io import BytesIO
-import json # Import untuk menangani file JSON
-import base64 # Import untuk encoding/decoding konten file GitHub API
+import json
+import base64
 
 # Muat variabel lingkungan jika berjalan secara lokal
 load_dotenv()
@@ -28,8 +28,6 @@ if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
 try:
     g = Github(GITHUB_TOKEN)
     repo = g.get_user(GITHUB_REPO_OWNER).get_repo(GITHUB_REPO_NAME)
-    # Coba akses konten untuk memastikan koneksi dan repo valid
-    # Ini akan memicu error jika repo atau path tidak ditemukan
     repo.get_contents(GITHUB_UPLOAD_PATH)
 except Exception as e:
     st.error(f"Gagal terhubung ke repositori GitHub atau path '{GITHUB_UPLOAD_PATH}' tidak ditemukan. Pastikan token, detail repositori, dan folder '{GITHUB_UPLOAD_PATH}' di repo benar: {e}")
@@ -50,35 +48,29 @@ def load_captions_from_github():
     """Memuat caption dari captions.json di GitHub."""
     try:
         contents = repo.get_contents(GITHUB_CAPTIONS_FILE)
-        # Konten dari GitHub API adalah base64-encoded
         decoded_content = base64.b64decode(contents.content).decode('utf-8')
         return json.loads(decoded_content)
     except Exception as e:
-        # Jika file tidak ada atau ada error lain, kembalikan dictionary kosong
         st.warning(f"Tidak dapat memuat captions.json dari GitHub atau file kosong/rusak. Menginisialisasi caption baru. Detail: {e}")
         return {}
 
 def save_captions_to_github(captions_data):
     """Menyimpan caption ke captions.json di GitHub."""
     try:
-        # Encode data ke JSON string dan kemudian ke base64
         json_string = json.dumps(captions_data, indent=4)
         encoded_content = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
 
-        # Cek apakah file sudah ada
         try:
             contents = repo.get_contents(GITHUB_CAPTIONS_FILE)
-            # Update file yang sudah ada
             repo.update_file(
                 path=GITHUB_CAPTIONS_FILE,
                 message="Update captions.json from Streamlit app",
                 content=encoded_content,
-                sha=contents.sha, # SHA diperlukan untuk update
+                sha=contents.sha,
                 branch="main"
             )
             st.success("Caption berhasil diperbarui di GitHub.")
-        except Exception as e:
-            # Buat file baru jika belum ada
+        except Exception as e: # Jika file tidak ada, buat baru
             repo.create_file(
                 path=GITHUB_CAPTIONS_FILE,
                 message="Create captions.json from Streamlit app",
@@ -138,18 +130,28 @@ st.markdown(
     .stButton>button:active {
         background-color: #084298;
     }
-    .stButton[data-testid="stButton-confirm_delete"] > button,
-    .stButton[data-testid="stButton-toggle_delete_mode"] > button {
+    /* Gaya spesifik untuk tombol hapus dan edit */
+    .stButton[data-testid*="confirm_delete"] > button,
+    .stButton[data-testid*="toggle_delete_mode"] > button {
         background-color: #dc3545;
     }
-    .stButton[data-testid="stButton-confirm_delete"] > button:hover,
-    .stButton[data-testid="stButton-toggle_delete_mode"] > button:hover {
+    .stButton[data-testid*="confirm_delete"] > button:hover,
+    .stButton[data-testid*="toggle_delete_mode"] > button:hover {
         background-color: #bb2d3b;
     }
-    .stButton[data-testid="stButton-cancel_delete_mode"] > button {
+    .stButton[data-testid*="toggle_edit_mode"] > button { /* Gaya untuk tombol edit global */
+        background-color: #ffc107; /* Kuning untuk edit */
+        color: #212529;
+    }
+    .stButton[data-testid*="toggle_edit_mode"] > button:hover {
+        background-color: #e0a800;
+    }
+    .stButton[data-testid*="cancel_delete_mode"] > button,
+    .stButton[data-testid*="cancel_edit_mode"] > button { /* Gaya untuk batal */
         background-color: #6c757d;
     }
-     .stButton[data-testid="stButton-cancel_delete_mode"] > button:hover {
+    .stButton[data-testid*="cancel_delete_mode"] > button:hover,
+    .stButton[data-testid*="cancel_edit_mode"] > button:hover {
         background-color: #5a6268;
     }
 
@@ -196,8 +198,12 @@ if 'add_photo_mode' not in st.session_state:
     st.session_state.add_photo_mode = False
 if 'image_captions' not in st.session_state:
     st.session_state.image_captions = load_captions_from_github()
-if 'edit_caption_mode' not in st.session_state:
-    st.session_state.edit_caption_mode = None # Menyimpan nama file yang sedang diedit
+if 'edit_mode' not in st.session_state: # Mode edit global (True/False)
+    st.session_state.edit_mode = False
+if 'selected_for_edit' not in st.session_state: # Menyimpan nama file yang dipilih untuk edit
+    st.session_state.selected_for_edit = None
+if 'delete_mode' not in st.session_state: # Pastikan delete_mode didefinisikan sebelum digunakan
+    st.session_state.delete_mode = False
 
 # --- Bagian Tambah Foto (Tersembunyi di balik tombol) ---
 st.header("Tambahkan Foto Baru")
@@ -208,7 +214,9 @@ if st.session_state.add_photo_mode:
         st.session_state.add_photo_mode = False
         st.rerun()
 else:
-    if st.button("➕ Tambahkan Foto", key="toggle_add_photo"):
+    # Disable tombol ini jika mode edit atau delete sedang aktif
+    add_button_disabled = st.session_state.edit_mode or st.session_state.delete_mode
+    if st.button("➕ Tambahkan Foto", key="toggle_add_photo", disabled=add_button_disabled):
         st.session_state.add_photo_mode = True
         st.rerun()
 
@@ -300,12 +308,11 @@ if st.session_state.add_photo_mode:
                 )
                 st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
                 
-                # Simpan caption ke session state dan GitHub
                 st.session_state.image_captions[github_filename] = new_photo_caption
                 save_captions_to_github(st.session_state.image_captions)
 
-                st.session_state.uploader_key_counter += 1 # Reset uploader
-                st.session_state.add_photo_mode = False # Sembunyikan form
+                st.session_state.uploader_key_counter += 1
+                st.session_state.add_photo_mode = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Gagal mengunggah foto ke GitHub: {e}")
@@ -320,7 +327,7 @@ image_files_github = []
 try:
     contents = repo.get_contents(GITHUB_UPLOAD_PATH)
     for content_file in contents:
-        if content_file.type == "file" and allowed_file(content_file.name) and content_file.name != "captions.json": # Exclude captions.json
+        if content_file.type == "file" and allowed_file(content_file.name) and content_file.name != "captions.json":
             image_files_github.append(content_file.name)
 
     image_files_github.sort(reverse=True)
@@ -333,28 +340,81 @@ except Exception as e:
 if not image_files_github:
     st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
 else:
-    # Mode Hapus dan Edit
-    if 'delete_mode' not in st.session_state:
-        st.session_state.delete_mode = False
-    if 'selected_for_delete' not in st.session_state:
-        st.session_state.selected_for_delete = set()
+    # --- Tombol Mode Hapus dan Edit ---
+    col_gallery_actions = st.columns(3) # 3 kolom untuk Tambah, Hapus, Edit
+    with col_gallery_actions[0]:
+        # Tombol Tambah Foto (disable jika mode lain aktif)
+        add_button_disabled = st.session_state.edit_mode or st.session_state.delete_mode
+        if st.session_state.add_photo_mode:
+            st.button("⬅️ Batal Tambah Foto", key="cancel_add_photo_2", on_click=lambda: st.session_state.update(add_photo_mode=False))
+        else:
+            if st.button("➕ Tambahkan Foto", key="toggle_add_photo_2", disabled=add_button_disabled):
+                st.session_state.add_photo_mode = True
+                st.rerun()
 
-    col_btn_gallery1, col_btn_gallery2 = st.columns([1, 5])
-    with col_btn_gallery1:
+    with col_gallery_actions[1]:
+        # Tombol Toggle Hapus
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
                 st.session_state.delete_mode = False
                 st.session_state.selected_for_delete = set()
                 st.rerun()
         else:
-            if st.button("🗑️ Pilih Hapus", key="toggle_delete_mode"):
+            # Disable jika mode tambah atau edit aktif
+            delete_button_disabled = st.session_state.add_photo_mode or st.session_state.edit_mode
+            if st.button("🗑️ Pilih Hapus", key="toggle_delete_mode", disabled=delete_button_disabled):
                 st.session_state.delete_mode = True
                 st.rerun()
 
+    with col_gallery_actions[2]:
+        # Tombol Toggle Edit
+        if st.session_state.edit_mode:
+            if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
+                st.session_state.edit_mode = False
+                st.session_state.selected_for_edit = None # Reset pilihan edit
+                st.rerun()
+        else:
+            # Disable jika mode tambah atau hapus aktif
+            edit_button_disabled = st.session_state.add_photo_mode or st.session_state.delete_mode
+            if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
+                st.session_state.edit_mode = True
+                st.rerun()
+    # --- Akhir Tombol Mode ---
+
+
+    # --- Tampilan Form Edit Caption Global ---
+    if st.session_state.edit_mode and st.session_state.selected_for_edit:
+        st.markdown("---")
+        st.subheader(f"Edit Caption: {st.session_state.selected_for_edit}")
+        
+        current_caption_for_edit = st.session_state.image_captions.get(st.session_state.selected_for_edit, "Tidak ada caption")
+        new_caption_edit_global = st.text_input(
+            "Tulis Caption Baru:",
+            value=current_caption_for_edit,
+            key=f"edit_caption_global_input"
+        )
+        col_save_global, col_cancel_global = st.columns(2)
+        with col_save_global:
+            if st.button("✅ Simpan Perubahan", key="save_edited_caption_global"):
+                st.session_state.image_captions[st.session_state.selected_for_edit] = new_caption_edit_global
+                save_captions_to_github(st.session_state.image_captions)
+                st.session_state.edit_mode = False # Keluar dari mode edit setelah simpan
+                st.session_state.selected_for_edit = None
+                st.rerun()
+        with col_cancel_global:
+            if st.button("❌ Batal", key="cancel_edit_caption_global"):
+                st.session_state.edit_mode = False
+                st.session_state.selected_for_edit = None
+                st.rerun()
+        st.markdown("---") # Garis pemisah setelah form edit
+
+    # Pesan mode
     if st.session_state.delete_mode:
         st.warning("Pilih foto yang ingin Anda hapus. Klik lagi untuk membatalkan pilihan.")
-    elif st.session_state.edit_caption_mode:
-        st.info("Anda sedang mengedit caption. Selesaikan atau batalkan untuk berinteraksi dengan foto lain.")
+    elif st.session_state.edit_mode and not st.session_state.selected_for_edit:
+        st.info("Pilih satu foto untuk mengedit caption-nya.")
+    elif st.session_state.edit_mode and st.session_state.selected_for_edit:
+        st.info(f"Anda sedang mengedit caption untuk: {st.session_state.selected_for_edit}")
 
     num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4)
 
@@ -370,33 +430,9 @@ else:
                     st.image(image_url, use_container_width=True)
 
                     current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
+                    st.markdown(f"**Caption:** {current_caption}")
 
-                    # Mode Edit Caption
-                    if st.session_state.edit_caption_mode == image_name:
-                        new_caption_edit = st.text_input(
-                            "Edit Caption:",
-                            value=current_caption,
-                            key=f"edit_caption_input_{image_name}"
-                        )
-                        col_save, col_cancel = st.columns(2)
-                        with col_save:
-                            if st.button("✅ Simpan Caption", key=f"save_edited_caption_{image_name}"):
-                                st.session_state.image_captions[image_name] = new_caption_edit
-                                save_captions_to_github(st.session_state.image_captions)
-                                st.session_state.edit_caption_mode = None
-                                st.rerun()
-                        with col_cancel:
-                            if st.button("❌ Batal Edit", key=f"cancel_edit_caption_{image_name}"):
-                                st.session_state.edit_caption_mode = None
-                                st.rerun()
-                    else:
-                        st.markdown(f"**Caption:** {current_caption}")
-                        if not st.session_state.delete_mode: # Hanya tampilkan tombol edit jika tidak dalam mode hapus
-                            if st.button("✏️ Edit Caption", key=f"edit_caption_button_{image_name}", disabled=(st.session_state.edit_caption_mode is not None and st.session_state.edit_caption_mode != image_name)):
-                                st.session_state.edit_caption_mode = image_name
-                                st.rerun()
-
-                    # Checkbox Hapus (tetap tampil jika delete_mode aktif)
+                    # Checkbox untuk memilih foto dalam mode Hapus atau Edit
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
                         is_checked = image_name in st.session_state.selected_for_delete
@@ -406,6 +442,17 @@ else:
                         else:
                             if image_name in st.session_state.selected_for_delete:
                                 st.session_state.selected_for_delete.remove(image_name)
+                    elif st.session_state.edit_mode:
+                        # Radio button untuk memilih satu foto saja
+                        # Pilihan hanya 1, tapi untuk memicu perubahan state
+                        radio_key = f"select_edit_{image_name}"
+                        if st.radio("Pilih Foto Ini", (image_name, ), key=radio_key, index=None):
+                            st.session_state.selected_for_edit = image_name
+                            # st.rerun() # Tidak perlu rerun otomatis di sini, biar user milih dulu
+                        elif st.session_state.selected_for_edit == image_name:
+                             # Jika sudah terpilih tapi tombol radio tidak aktif (karena hanya 1 pilihan)
+                             # kita bisa setel ulang selected_for_edit ke None jika user mengklik yang lain
+                             pass # Pilihan radio sudah menangani deselection otomatis
 
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
@@ -413,6 +460,7 @@ else:
 
         col_idx = (col_idx + 1) % num_cols
 
+    # --- Bagian Eksekusi Hapus ---
     if st.session_state.delete_mode and st.session_state.selected_for_delete:
         st.markdown("---")
         st.markdown(
@@ -446,7 +494,6 @@ else:
                     st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
                     st.exception(e)
 
-            # Setelah semua penghapusan, simpan perubahan caption ke GitHub
             save_captions_to_github(st.session_state.image_captions)
 
             if deleted_count > 0:
