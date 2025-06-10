@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from PIL import Image # Penting untuk memproses gambar
+from PIL import Image
 import uuid
 from datetime import datetime
 from github import Github
@@ -240,7 +240,7 @@ st.markdown(
         height: 200px; /* Fixed height for consistency */
         object-fit: cover; /* Crop to fill */
         border-radius: 0.3rem;
-
+    }
     .footer {
         text-align: center;
         padding: 1.5rem 0;
@@ -251,6 +251,30 @@ st.markdown(
         bottom: 0;
         width: 100%;
     }
+    /* KODE BARU UNTUK BORDER PADA FOTO */
+    /* st.container() dalam Streamlit biasanya dirender sebagai div dengan class tertentu */
+    /* Kita bisa menargetkan elemen div yang dibuat oleh st.container() */
+    /* Class .st-emotion-cache-1r6dm7x adalah salah satu class yang sering muncul pada container */
+    /* Anda mungkin perlu memeriksa inspektur elemen browser Anda untuk memastikan class yang tepat */
+    div[data-testid="stVerticalBlock"] > div.st-emotion-cache-nahz7x { /* Ini menargetkan div yang membungkus container di dalam kolom */
+        border: 2px solid #6c757d; /* Warna abu-abu yang sedikit lebih gelap */
+        border-radius: 0.5rem; /* Menyesuaikan dengan border-radius container */
+        padding: 0.5rem; /* Tambahkan sedikit padding di dalam border */
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.3); /* Sedikit bayangan untuk menonjolkan */
+    }
+    /* Atau jika Anda ingin border langsung pada container Streamlit itu sendiri */
+    .st-emotion-cache-1r6dm7x { /* Ini adalah class umum untuk st.container() yang tidak memiliki border=True */
+        border: 2px solid #6c757d;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.3);
+    }
+    /* Jika Anda menggunakan border=True pada st.container(), maka classnya akan berbeda */
+    /* Contoh: jika Anda menggunakan st.container(border=True), Streamlit akan menambahkan border secara default.
+       Untuk mengubah warnanya, Anda bisa menargetkan class yang diberikan Streamlit untuk border tersebut.
+       Seringkali itu adalah `.st-emotion-cache-fvw89x` atau sejenisnya.
+       Namun, untuk konsistensi, lebih baik tambahkan border secara manual seperti di atas. */
+
     </style>
     """,
     unsafe_allow_html=True
@@ -266,8 +290,8 @@ st.markdown("---") # Garis pemisah untuk kejelasan
 # Input Caption
 # Disable jika mode edit atau delete sedang aktif
 upload_widgets_disabled = st.session_state.edit_mode or st.session_state.delete_mode
-new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input", 
-                                  disabled=upload_widgets_disabled)
+new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input",
+                                   disabled=upload_widgets_disabled)
 
 # File Uploader
 uploaded_file_object = st.file_uploader(
@@ -463,7 +487,8 @@ else:
             
             try:
                 # Menggunakan st.container() untuk membungkus setiap item galeri
-                with st.container(): # Ini adalah container yang akan mendapatkan border
+                # Streamlit akan menambahkan class CSS secara otomatis ke container ini
+                with st.container():
                     st.image(image_url, use_container_width=True)
 
                     current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
