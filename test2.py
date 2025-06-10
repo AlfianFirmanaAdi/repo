@@ -383,7 +383,7 @@ else:
             value=current_caption_for_edit,
             key=f"edit_caption_global_input"
         )
-        col_save, col_cancel = st.columns(2)
+        col_save, col_cancel = st.columns(1)
         with col_save:
             if st.button("✅ Simpan Perubahan", key="save_edited_caption_global"):
                 st.session_state.image_captions[st.session_state.selected_for_edit] = new_caption_edit_global
