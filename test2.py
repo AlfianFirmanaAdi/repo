@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from io import BytesIO # Penting untuk membaca dan menulis data gambar di memori
 
 # Muat variabel lingkungan jika berjalan secara lokal
-load_dotenv()
+load_dotenv() 
 
 # Konfigurasi GitHub dari environment variables
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -18,7 +18,7 @@ GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
-    st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur. Pastikan sudah ada di Streamlit Secrets.")
+    st.error("Error: Variabel lingkungan GITHUB_TOKEN, GITHUB_REPO_OWNER, atau GITHUB_REPO_NAME tidak diatur. Pastikan sudah ada di Streamlit Secrets (jika di-deploy) atau di file .env (jika lokal).")
     st.stop()
 
 # Inisialisasi GitHub API
@@ -38,6 +38,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'} # HEIC tetap 
 MAX_FILE_SIZE_MB = 32 # Max 32MB
 
 def allowed_file(filename):
+    """Memeriksa apakah ekstensi file diizinkan."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -53,15 +54,17 @@ st.markdown(
     """
     <style>
     .stApp {
-        background-color: #1a1a1a;
-        color: #e0e0e0;
+        background-color: #1a1a1a; /* Dark background for the app */
+        color: #e0e0e0; /* Light text color */
     }
+    /* Mengontrol lebar kontainer utama aplikasi */
     section.main[data-testid="stSidebarContent"] + section.main {
         max-width: 900px; /* Lebar maksimal konten utama, sesuaikan sesuai kebutuhan */
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    .st-emotion-cache-nahz7x.e1nzilvr4 {
+    /* Streamlit's main header/sidebar container */
+    .st-emotion-cache-nahz7x.e1nzilvr4 { 
         background-color: #2c3034;
         padding: 1rem;
         border-radius: 0.5rem;
@@ -72,6 +75,7 @@ st.markdown(
     .stFileUploader {
         color: #e0e0e0;
     }
+    /* Gaya untuk semua tombol Streamlit */
     .stButton>button {
         background-color: #0d6efd;
         color: white;
@@ -88,16 +92,17 @@ st.markdown(
     .stButton>button:active {
         background-color: #084298;
     }
+    /* Gaya spesifik untuk tombol hapus */
     .stButton[data-testid="stButton-confirm_delete"] > button,
     .stButton[data-testid="stButton-toggle_delete_mode"] > button {
-        background-color: #dc3545;
+        background-color: #dc3545; /* Merah untuk hapus */
     }
     .stButton[data-testid="stButton-confirm_delete"] > button:hover,
     .stButton[data-testid="stButton-toggle_delete_mode"] > button:hover {
         background-color: #bb2d3b;
     }
     .stButton[data-testid="stButton-cancel_delete_mode"] > button {
-        background-color: #6c757d;
+        background-color: #6c757d; /* Abu-abu untuk batal */
     }
      .stButton[data-testid="stButton-cancel_delete_mode"] > button:hover {
         background-color: #5a6268;
@@ -108,12 +113,13 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
-
-    .stImage > img {
-        height: 200px;
-        object-fit: cover;
+    
+    .stImage > img { /* Target gambar di dalam st.image */
+        height: 200px; /* Fixed height for consistency */
+        object-fit: cover; /* Crop to fill */
         border-radius: 0.3rem;
     }
+    /* Menghilangkan border dari kontainer Streamlit */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
         border: none !important;
@@ -153,6 +159,16 @@ uploaded_file_object = st.file_uploader(
     key=f"file_uploader_{st.session_state.uploader_key_counter}"
 )
 
+# --- Pesan untuk File HEIC ---
+st.info("""
+    **Catatan Penting untuk File HEIC (.heic):**
+    Jika Anda mengunggah file `.HEIC` dan mengalami masalah (misalnya, gambar tidak muncul atau ada error),
+    mohon konversi file `.HEIC` Anda ke format `.JPG` atau `.PNG` terlebih dahulu menggunakan aplikasi pengeditan foto
+    atau konverter online sebelum mengunggahnya. Terima kasih!
+""")
+# --- Akhir Pesan HEIC ---
+
+
 if uploaded_file_object is not None:
     if st.button("Unggah Foto", key="upload_button"):
         if uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
@@ -164,7 +180,7 @@ if uploaded_file_object is not None:
             unique_id = uuid.uuid4().hex
             base_name, ext = os.path.splitext(original_filename)
 
-            # --- KODE UNTUK KONVERSI HEIC DIMULAI DI SINI ---
+            # --- KODE UNTUK KONVERSI HEIC ---
             content_to_upload = None
             file_mimetype = None
 
@@ -185,7 +201,6 @@ if uploaded_file_object is not None:
                     img = Image.open(BytesIO(img_bytes)) # Buka lagi untuk konversi
                     
                     output_buffer = BytesIO()
-                    # Pastikan kualitas kompresi JPEG agar file tidak terlalu besar
                     img.save(output_buffer, format="jpeg", quality=90) # kualitas 90%
                     output_buffer.seek(0)
 
@@ -203,7 +218,7 @@ if uploaded_file_object is not None:
                 content_to_upload = uploaded_file_object.getvalue()
                 file_mimetype = uploaded_file_object.type
                 st.info(f"Mengunggah file {ext} asli.")
-            # --- KODE UNTUK KONVERSI HEIC SELESAI DI SINI ---
+            # --- AKHIR KODE UNTUK KONVERSI HEIC ---
 
             # Pastikan content_to_upload tidak None karena error konversi
             if content_to_upload is None:
@@ -239,7 +254,6 @@ try:
     # Memastikan kita hanya mengambil file dari folder yang ditentukan
     contents = repo.get_contents(GITHUB_UPLOAD_PATH)
     for content_file in contents:
-        # PENTING: Jika HEIC dikonversi ke JPEG, pastikan hanya menampilkan JPEG
         # Kita perlu allowed_file agar tetap memfilter file yang didukung oleh browser/st.image
         # dan juga agar HEIC yang dikonversi ke JPEG tetap masuk
         if content_file.type == "file" and allowed_file(content_file.name):
@@ -302,7 +316,7 @@ else:
 
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
-                st.exception(e) # Tampilkan traceback lengkap
+                st.exception(e) # Menampilkan traceback lengkap
 
         col_idx = (col_idx + 1) % num_cols
 
@@ -334,7 +348,7 @@ else:
                 except Exception as e:
                     error_count += 1
                     st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
-                    st.exception(e) # Tampilkan traceback lengkap
+                    st.exception(e) # Menampilkan traceback lengkap
 
             if deleted_count > 0:
                 st.success(f'{deleted_count} foto berhasil dihapus dari GitHub.')
@@ -352,7 +366,7 @@ st.markdown("---")
 st.markdown(
     f"""
     <div class="footer">
-        <p>&copy; {datetime.now().year} Galeri WDF. Dibuat untuk Kenangan.</p>
+        <p>&copy; {datetime.now().year} Galeri WDF.</p>
     </div>
     """,
     unsafe_allow_html=True
