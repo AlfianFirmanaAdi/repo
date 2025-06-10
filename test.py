@@ -218,7 +218,7 @@ else:
                 
                 # Gunakan st.container untuk membungkus gambar dan checkbox
                     with st.container(border=True): # Menggunakan border=True untuk tampilan seperti kartu
-                    st.image(img, use_container_width=True) # Ini akan menyesuaikan lebar gambar dengan kontainernya 
+                    st.image(img, caption=image_name, use_container_width=true) # Ini akan menyesuaikan lebar gambar dengan kontainernya 
 
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
