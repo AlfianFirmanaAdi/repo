@@ -342,7 +342,7 @@ else:
     # --- Tombol Mode Hapus dan Edit ---
     # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
     # [3] untuk kolom kosong yang mendorong, [1] untuk Pilih Hapus, [1] untuk Edit Caption
-    col_gallery_actions = st.columns([20, 1, 1])
+    col_gallery_actions = st.columns([1, 1, 1])
     
     with col_gallery_actions[1]: # Tempatkan Pilih Hapus di kolom kedua
         # Tombol Toggle Hapus
@@ -358,7 +358,7 @@ else:
                 st.session_state.delete_mode = True
                 st.rerun()
 
-    with col_gallery_actions[3]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
+    with col_gallery_actions[2]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
         # Tombol Toggle Edit
         if st.session_state.edit_mode:
             if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
