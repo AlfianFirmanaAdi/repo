@@ -206,7 +206,10 @@ st.markdown(
     }
 
     /* Gaya untuk container setiap foto */
-    div.st-emotion-cache-16i0pjw { /* Ini adalah class umum untuk st.container() tanpa border=True */
+    /* Targetkan class yang Streamlit gunakan untuk st.container() */
+    /* st-emotion-cache-16i0pjw adalah class umum untuk st.container() tanpa border=True */
+    /* Jika ini tidak berfungsi, Anda perlu inspect element di browser untuk class yang tepat */
+    div.st-emotion-cache-16i0pjw {
         border: 1px solid #495057; /* Warna border */
         border-radius: 0.3rem;
         margin-bottom: 1rem; /* Jarak antar foto ke bawah */
@@ -221,8 +224,8 @@ st.markdown(
         width: 100%; /* Pastikan gambar mengisi container */
         display: block; /* Menghilangkan spasi ekstra di bawah gambar */
     }
-
-    /* Ini adalah selektor yang harus dihapus atau diabaikan jika Anda ingin div.st-emotion-cache-16i0pjw img yang mengontrol semua */
+    
+    /* Ini adalah selektor yang harus dihapus atau diabaikan jika div.st-emotion-cache-16i0pjw img sudah mengontrol semua */
     /* .stImage > img {
         object-fit: cover;
         border-radius: 0.3rem;
@@ -343,7 +346,7 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widget
                 content=content_to_upload,
                 branch="main"
             )
-            st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
+            st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
             
             st.session_state.image_captions[github_filename] = new_photo_caption
             save_captions_to_github(st.session_state.image_captions)
@@ -412,7 +415,7 @@ else:
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # Kolom kedua col_gallery_actions[1] akan kosong dan mendorong tombol Edit ke kanan
+    # Kolom kedua col_gallery_actions[1] akan kosong untuk mendorong tombol Edit ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
