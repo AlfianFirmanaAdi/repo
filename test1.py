@@ -32,6 +32,10 @@ except Exception as e:
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
 MAX_FILE_SIZE_MB = 32 # Max 32MB
 
+def allowed_file(filename): # Pastikan definisi ini ada di sini, di awal
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 st.set_page_config(
     page_title="🏕️ Galeri WDF",
     page_icon="📸",
