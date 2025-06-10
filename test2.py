@@ -206,7 +206,7 @@ st.markdown(
     }
 
     /* Gaya untuk container setiap foto */
-    div.st-emotion-cache-16i0pjw { /* Atau class lain yang membungkus gambar */
+    div.st-emotion-cache-16i0pjw { /* Ini adalah class umum untuk st.container() tanpa border=True */
         border: 1px solid #495057; /* Warna border */
         border-radius: 0.3rem;
         margin-bottom: 1rem; /* Jarak antar foto ke bawah */
@@ -222,14 +222,16 @@ st.markdown(
         display: block; /* Menghilangkan spasi ekstra di bawah gambar */
     }
 
-    .stImage > img { /* Selektor lama, mungkin perlu dihapus atau disesuaikan jika div.st-emotion-cache-16i0pjw img sudah cukup */
+    /* Ini adalah selektor yang harus dihapus atau diabaikan jika Anda ingin div.st-emotion-cache-16i0pjw img yang mengontrol semua */
+    /* .stImage > img {
         object-fit: cover;
         border-radius: 0.3rem;
         width: 100%;
         display: block;
-    }
+    } */
     
     /* Menghilangkan border dari kontainer Streamlit utama yang mungkin tumpang tindih */
+    /* Ini penting untuk menghilangkan border default yang mungkin dibuat oleh Streamlit untuk st.container */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
         border: none !important;
@@ -341,7 +343,7 @@ if st.button("💾 Simpan Foto", key="save_photo_button", disabled=upload_widget
                 content=content_to_upload,
                 branch="main"
             )
-            st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+            st.success("Foto berhasil diunggah ke Galeri WDF! 📸")
             
             st.session_state.image_captions[github_filename] = new_photo_caption
             save_captions_to_github(st.session_state.image_captions)
@@ -358,8 +360,6 @@ st.markdown("---")
 st.header("Koleksi Foto")
 
 # Muat captions setelah GitHub API diinisialisasi
-# Ini memastikan st.session_state.image_captions memiliki data yang sudah dimuat dari GitHub
-# jika ada di awal skrip
 if not st.session_state.image_captions: # Hanya muat jika belum ada data atau masih kosong
     st.session_state.image_captions = load_captions_from_github()
 
@@ -383,9 +383,9 @@ else:
     # --- Tombol Mode Hapus dan Edit ---
     # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
     # [1] untuk Pilih Hapus, [rasio besar] untuk ruang kosong, [1] untuk Edit Caption
-    col_gallery_actions = st.columns([1, 6, 1]) # Perbaikan di sini!
+    col_gallery_actions = st.columns([1, 6, 1]) # Ini adalah baris yang menentukan posisi tombol
 
-    with col_gallery_actions[0]: # Tempatkan Pilih Hapus di kolom pertama
+    with col_gallery_actions[0]: # Tempatkan Pilih Hapus di kolom pertama (kiri)
         # Tombol Toggle Hapus
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
@@ -412,7 +412,7 @@ else:
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # Kolom kedua col_gallery_actions[1] akan kosong untuk mendorong tombol Edit ke kanan
+    # Kolom kedua col_gallery_actions[1] akan kosong dan mendorong tombol Edit ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
@@ -459,7 +459,8 @@ else:
             image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
             
             try:
-                with st.container():
+                # Menggunakan st.container() untuk membungkus setiap item galeri
+                with st.container(): # Ini adalah container yang akan mendapatkan border
                     st.image(image_url, use_container_width=True)
 
                     current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
