@@ -2,3 +2,4 @@ streamlit
 Pillow
 PyGithub
 python-dotenv
+pillow-heif
