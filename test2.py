@@ -52,8 +52,8 @@ except Exception as e:
     st.stop()
 
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'} # HEIC tetap diizinkan untuk upload
-MAX_FILE_SIZE_MB = 32 # Max 32MB
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
+MAX_FILE_SIZE_MB = 32
 
 def allowed_file(filename):
     """Memeriksa apakah ekstensi file diizinkan."""
@@ -116,7 +116,12 @@ st.markdown(
         background-color: #1a1a1a;
         color: #e0e0e0;
     }
-    section.main[data-testid="stSidebarContent"] + section.main {
+    section.main::-webkit-scrollbar {
+        display: none; /* Sembunyikan scrollbar untuk Chrome, Safari, dan Opera */
+    }
+    section.main {
+        -ms-overflow-style: none; /* Sembunyikan scrollbar untuk Internet Explorer dan Edge */
+        scrollbar-width: none; /* Sembunyikan scrollbar untuk Firefox */
         max-width: 900px;
         padding-left: 1rem;
         padding-right: 1rem;
@@ -149,29 +154,48 @@ st.markdown(
         background-color: #084298;
     }
     /* Gaya spesifik untuk tombol hapus dan edit */
-    .stButton[data-testid*="confirm_delete"] > button,
-    .stButton[data-testid*="toggle_delete_mode"] > button {
+    .stButton>button:has-text("Hapus ") { /* Menargetkan tombol Hapus dengan teks dinamis */
         background-color: #dc3545;
     }
-    .stButton[data-testid*="confirm_delete"] > button:hover,
-    .stButton[data-testid*="toggle_delete_mode"] > button:hover {
+    .stButton>button:has-text("Hapus "):hover {
         background-color: #bb2d3b;
     }
-    .stButton[data-testid*="toggle_edit_mode"] > button { /* Gaya untuk tombol edit global */
+    .stButton>button:has-text("🚫 Batal Hapus") {
+        background-color: #6c757d;
+    }
+    .stButton>button:has-text("🚫 Batal Hapus"):hover {
+        background-color: #5a6268;
+    }
+    .stButton>button:has-text("🗑️ Pilih Hapus") {
+        background-color: #dc3545;
+    }
+    .stButton>button:has-text("🗑️ Pilih Hapus"):hover {
+        background-color: #bb2d3b;
+    }
+    .stButton>button:has-text("↩️ Batal Edit") {
+        background-color: #6c757d;
+    }
+    .stButton>button:has-text("↩️ Batal Edit"):hover {
+        background-color: #5a6268;
+    }
+    .stButton>button:has-text("✏️ Edit Caption") {
         background-color: #ffc107;
         color: #212529;
     }
-    .stButton[data-testid*="toggle_edit_mode"] > button:hover {
+    .stButton>button:has-text("✏️ Edit Caption"):hover {
         background-color: #e0a800;
     }
-    .stButton[data-testid*="cancel_delete_mode"] > button,
-    .stButton[data-testid*="cancel_edit_mode"] > button,
-    .stButton[data-testid*="cancel_add_photo"] > button { /* Gaya untuk batal */
+    .stButton>button:has-text("✅ Simpan Perubahan") {
+        background-color: #28a745;
+        color: white;
+    }
+    .stButton>button:has-text("✅ Simpan Perubahan"):hover {
+        background-color: #218838;
+    }
+    .stButton>button:has-text("❌ Batal") {
         background-color: #6c757d;
     }
-    .stButton[data-testid*="cancel_delete_mode"] > button:hover,
-    .stButton[data-testid*="cancel_edit_mode"] > button:hover,
-    .stButton[data-testid*="cancel_add_photo"] > button:hover {
+    .stButton>button:has-text("❌ Batal"):hover {
         background-color: #5a6268;
     }
 
@@ -181,18 +205,35 @@ st.markdown(
         border-color: #495057;
     }
 
-    .stImage > img {
-        height: 200px;
+    /* Gaya untuk container setiap foto */
+    div.st-emotion-cache-16i0pjw { /* Atau class lain yang membungkus gambar */
+        border: 1px solid #495057; /* Warna border */
+        border-radius: 0.3rem;
+        margin-bottom: 1rem; /* Jarak antar foto ke bawah */
+        padding: 0.5rem; /* Padding di dalam border untuk konten */
+        background-color: #2c3034; /* Warna latar belakang di dalam border */
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
+    }
+    div.st-emotion-cache-16i0pjw img { /* Target gambar di dalam container */
+        height: 200px; /* Fixed height for consistency */
+        object-fit: cover; /* Crop to fill */
+        border-radius: 0.3rem; /* Radius gambar agar sesuai container */
+        width: 100%; /* Pastikan gambar mengisi container */
+        display: block; /* Menghilangkan spasi ekstra di bawah gambar */
+    }
+
+    .stImage > img { /* Selektor lama, mungkin perlu dihapus atau disesuaikan jika div.st-emotion-cache-16i0pjw img sudah cukup */
         object-fit: cover;
         border-radius: 0.3rem;
+        width: 100%;
+        display: block;
     }
+    
+    /* Menghilangkan border dari kontainer Streamlit utama yang mungkin tumpang tindih */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
         border: none !important;
         box-shadow: none !important;
-    }
-    .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div > img {
-        border: none !important;
     }
 
     .footer {
@@ -341,10 +382,10 @@ if not image_files_github:
 else:
     # --- Tombol Mode Hapus dan Edit ---
     # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
-    # [3] untuk kolom kosong yang mendorong, [1] untuk Pilih Hapus, [1] untuk Edit Caption
-    col_gallery_actions = st.columns([4, 17, 19])
-    
-    with col_gallery_actions[0]: # Tempatkan Pilih Hapus di kolom kedua
+    # [1] untuk Pilih Hapus, [rasio besar] untuk ruang kosong, [1] untuk Edit Caption
+    col_gallery_actions = st.columns([1, 6, 1]) # Perbaikan di sini!
+
+    with col_gallery_actions[0]: # Tempatkan Pilih Hapus di kolom pertama
         # Tombol Toggle Hapus
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
@@ -358,7 +399,7 @@ else:
                 st.session_state.delete_mode = True
                 st.rerun()
 
-    with col_gallery_actions[1]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
+    with col_gallery_actions[2]: # Tempatkan Edit Caption di kolom ketiga (paling kanan)
         # Tombol Toggle Edit
         if st.session_state.edit_mode:
             if st.button("↩️ Batal Edit", key="cancel_edit_mode"):
@@ -371,7 +412,7 @@ else:
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # Kolom pertama col_gallery_actions[0] akan kosong untuk mendorong tombol ke kanan
+    # Kolom kedua col_gallery_actions[1] akan kosong untuk mendorong tombol Edit ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
