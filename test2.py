@@ -212,7 +212,6 @@ if 'delete_mode' not in st.session_state:
 st.header("Tambahkan Foto Baru")
 
 # Tombol untuk menampilkan/menyembunyikan form upload
-# Tombol ini sekarang menjadi satu-satunya tombol "Tambahkan Foto"
 if st.session_state.add_photo_mode:
     if st.button("⬅️ Batal Tambah Foto", key="cancel_add_photo"):
         st.session_state.add_photo_mode = False
@@ -338,8 +337,9 @@ except Exception as e:
 if not image_files_github:
     st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
 else:
-    # --- Tombol Mode Hapus dan Edit (sekarang tanpa "Tambahkan Foto" yang ganda) ---
-    col_gallery_actions = st.columns(2) # Hanya 2 kolom untuk Hapus dan Edit
+    # --- Tombol Mode Hapus dan Edit ---
+    # Menggunakan kolom dengan rasio untuk menempatkan tombol di kanan
+    col_gallery_actions = st.columns([1, 1, 3]) # Kolom untuk Hapus, Edit, dan kolom kosong untuk mendorong tombol ke kanan
     
     with col_gallery_actions[0]:
         # Tombol Toggle Hapus
@@ -368,7 +368,7 @@ else:
             if st.button("✏️ Edit Caption", key="toggle_edit_mode", disabled=edit_button_disabled):
                 st.session_state.edit_mode = True
                 st.rerun()
-    # --- Akhir Tombol Mode ---
+    # Kolom ketiga col_gallery_actions[2] akan kosong untuk mendorong tombol ke kanan
 
 
     # --- Tampilan Form Edit Caption Global ---
@@ -421,7 +421,6 @@ else:
                     current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
                     st.markdown(f"**Caption:** {current_caption}")
 
-                    # Checkbox/Radio untuk memilih foto dalam mode Hapus atau Edit
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
                         is_checked = image_name in st.session_state.selected_for_delete
@@ -433,19 +432,15 @@ else:
                                 st.session_state.selected_for_delete.remove(image_name)
                     elif st.session_state.edit_mode:
                         radio_key = f"select_edit_{image_name}"
-                        # Gunakan st.radio hanya dengan satu opsi untuk bertindak sebagai seleksi
                         if st.radio("Pilih Foto Ini", (image_name, ), key=radio_key, index=None):
                             st.session_state.selected_for_edit = image_name
-                            st.rerun() # Penting untuk rerender dan tampilkan form edit
-                        # Tidak perlu else if untuk reset, karena st.radio single choice sudah menangani itu.
-
+                            st.rerun()
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
                 st.exception(e)
 
         col_idx = (col_idx + 1) % num_cols
 
-    # --- Bagian Eksekusi Hapus ---
     if st.session_state.delete_mode and st.session_state.selected_for_delete:
         st.markdown("---")
         st.markdown(
