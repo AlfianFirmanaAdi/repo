@@ -1,20 +1,23 @@
 import streamlit as st
 import os
-from PIL import Image # Penting untuk memproses gambar
+from PIL import Image
 import uuid
 from datetime import datetime
 from github import Github
 from dotenv import load_dotenv
-from io import BytesIO # Penting untuk membaca dan menulis data gambar di memori
+from io import BytesIO
+import json # Import untuk menangani file JSON
+import base64 # Import untuk encoding/decoding konten file GitHub API
 
 # Muat variabel lingkungan jika berjalan secara lokal
-load_dotenv() 
+load_dotenv()
 
 # Konfigurasi GitHub dari environment variables
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER")
 GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME")
 GITHUB_UPLOAD_PATH = "gallery_images" # Sub-direktori di repositori GitHub untuk gambar
+GITHUB_CAPTIONS_FILE = f"{GITHUB_UPLOAD_PATH}/captions.json" # Lokasi file captions.json
 
 # Pastikan semua variabel lingkungan diatur
 if not all([GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME]):
@@ -30,22 +33,68 @@ try:
     repo.get_contents(GITHUB_UPLOAD_PATH)
 except Exception as e:
     st.error(f"Gagal terhubung ke repositori GitHub atau path '{GITHUB_UPLOAD_PATH}' tidak ditemukan. Pastikan token, detail repositori, dan folder '{GITHUB_UPLOAD_PATH}' di repo benar: {e}")
-    st.info(f"Detail error: {type(e).__name__}: {e}") # Tampilkan tipe error untuk debugging
+    st.info(f"Detail error: {type(e).__name__}: {e}")
     st.stop()
 
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'} # HEIC tetap diizinkan untuk upload
-MAX_FILE_SIZE_MB = 32 # Max 32MB
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'}
+MAX_FILE_SIZE_MB = 32
 
 def allowed_file(filename):
     """Memeriksa apakah ekstensi file diizinkan."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# --- Fungsi untuk Mengelola Caption di GitHub ---
+def load_captions_from_github():
+    """Memuat caption dari captions.json di GitHub."""
+    try:
+        contents = repo.get_contents(GITHUB_CAPTIONS_FILE)
+        # Konten dari GitHub API adalah base64-encoded
+        decoded_content = base64.b64decode(contents.content).decode('utf-8')
+        return json.loads(decoded_content)
+    except Exception as e:
+        # Jika file tidak ada atau ada error lain, kembalikan dictionary kosong
+        st.warning(f"Tidak dapat memuat captions.json dari GitHub atau file kosong/rusak. Menginisialisasi caption baru. Detail: {e}")
+        return {}
+
+def save_captions_to_github(captions_data):
+    """Menyimpan caption ke captions.json di GitHub."""
+    try:
+        # Encode data ke JSON string dan kemudian ke base64
+        json_string = json.dumps(captions_data, indent=4)
+        encoded_content = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
+
+        # Cek apakah file sudah ada
+        try:
+            contents = repo.get_contents(GITHUB_CAPTIONS_FILE)
+            # Update file yang sudah ada
+            repo.update_file(
+                path=GITHUB_CAPTIONS_FILE,
+                message="Update captions.json from Streamlit app",
+                content=encoded_content,
+                sha=contents.sha, # SHA diperlukan untuk update
+                branch="main"
+            )
+            st.success("Caption berhasil diperbarui di GitHub.")
+        except Exception as e:
+            # Buat file baru jika belum ada
+            repo.create_file(
+                path=GITHUB_CAPTIONS_FILE,
+                message="Create captions.json from Streamlit app",
+                content=encoded_content,
+                branch="main"
+            )
+            st.success("Caption berhasil disimpan ke GitHub.")
+    except Exception as e:
+        st.error(f"Gagal menyimpan caption ke GitHub: {e}")
+        st.exception(e)
+# --- Akhir Fungsi Pengelola Caption ---
+
 st.set_page_config(
     page_title="🏕️ Galeri WDF",
     page_icon="📸",
-    layout="wide", # Tetap "wide" agar konten bisa mengisi lebar, tapi kita batasi dengan CSS
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
@@ -54,17 +103,15 @@ st.markdown(
     """
     <style>
     .stApp {
-        background-color: #1a1a1a; /* Dark background for the app */
-        color: #e0e0e0; /* Light text color */
+        background-color: #1a1a1a;
+        color: #e0e0e0;
     }
-    /* Mengontrol lebar kontainer utama aplikasi */
     section.main[data-testid="stSidebarContent"] + section.main {
-        max-width: 900px; /* Lebar maksimal konten utama, sesuaikan sesuai kebutuhan */
+        max-width: 900px;
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    /* Streamlit's main header/sidebar container */
-    .st-emotion-cache-nahz7x.e1nzilvr4 { 
+    .st-emotion-cache-nahz7x.e1nzilvr4 {
         background-color: #2c3034;
         padding: 1rem;
         border-radius: 0.5rem;
@@ -75,7 +122,6 @@ st.markdown(
     .stFileUploader {
         color: #e0e0e0;
     }
-    /* Gaya untuk semua tombol Streamlit */
     .stButton>button {
         background-color: #0d6efd;
         color: white;
@@ -92,17 +138,16 @@ st.markdown(
     .stButton>button:active {
         background-color: #084298;
     }
-    /* Gaya spesifik untuk tombol hapus */
     .stButton[data-testid="stButton-confirm_delete"] > button,
     .stButton[data-testid="stButton-toggle_delete_mode"] > button {
-        background-color: #dc3545; /* Merah untuk hapus */
+        background-color: #dc3545;
     }
     .stButton[data-testid="stButton-confirm_delete"] > button:hover,
     .stButton[data-testid="stButton-toggle_delete_mode"] > button:hover {
         background-color: #bb2d3b;
     }
     .stButton[data-testid="stButton-cancel_delete_mode"] > button {
-        background-color: #6c757d; /* Abu-abu untuk batal */
+        background-color: #6c757d;
     }
      .stButton[data-testid="stButton-cancel_delete_mode"] > button:hover {
         background-color: #5a6268;
@@ -113,13 +158,12 @@ st.markdown(
         background-color: #343a40;
         border-color: #495057;
     }
-    
-    .stImage > img { /* Target gambar di dalam st.image */
-        height: 200px; /* Fixed height for consistency */
-        object-fit: cover; /* Crop to fill */
+
+    .stImage > img {
+        height: 200px;
+        object-fit: cover;
         border-radius: 0.3rem;
     }
-    /* Menghilangkan border dari kontainer Streamlit */
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1,
     .st-emotion-cache-nahz7x div.st-emotion-cache-1r6zp11.e1nzilvr1 > div {
         border: none !important;
@@ -147,31 +191,55 @@ st.markdown(
 st.title("🏕️ Galeri WDF")
 st.markdown("---")
 
-# --- Bagian Upload Foto ---
-st.header("Bagikan Foto ke Galeri WDF")
+# --- Inisialisasi Session State untuk Mode Unggah dan Caption ---
+if 'add_photo_mode' not in st.session_state:
+    st.session_state.add_photo_mode = False
+if 'image_captions' not in st.session_state:
+    st.session_state.image_captions = load_captions_from_github()
+if 'edit_caption_mode' not in st.session_state:
+    st.session_state.edit_caption_mode = None # Menyimpan nama file yang sedang diedit
 
-if 'uploader_key_counter' not in st.session_state:
-    st.session_state.uploader_key_counter = 0
+# --- Bagian Tambah Foto (Tersembunyi di balik tombol) ---
+st.header("Tambahkan Foto Baru")
 
-uploaded_file_object = st.file_uploader(
-    f"Pilih Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
-    type=list(ALLOWED_EXTENSIONS),
-    key=f"file_uploader_{st.session_state.uploader_key_counter}"
-)
+# Tombol untuk menampilkan/menyembunyikan form upload
+if st.session_state.add_photo_mode:
+    if st.button("⬅️ Batal Tambah Foto", key="cancel_add_photo"):
+        st.session_state.add_photo_mode = False
+        st.rerun()
+else:
+    if st.button("➕ Tambahkan Foto", key="toggle_add_photo"):
+        st.session_state.add_photo_mode = True
+        st.rerun()
 
-# --- Pesan untuk File HEIC ---
-st.info("""
-    **Catatan Penting untuk File HEIC (.heic):**
-    Jika Anda mengunggah file `.HEIC` dan mengalami masalah (misalnya, gambar tidak muncul atau ada error),
-    mohon konversi file `.HEIC` Anda ke format `.JPG` atau `.PNG` terlebih dahulu menggunakan aplikasi pengeditan foto
-    atau konverter online sebelum mengunggahnya. Terima kasih!
-""")
-# --- Akhir Pesan HEIC ---
+# Form Upload hanya tampil jika add_photo_mode aktif
+if st.session_state.add_photo_mode:
+    st.markdown("---")
+    st.subheader("Form Unggah Foto")
+    
+    # Input Caption
+    new_photo_caption = st.text_input("Tulis Caption untuk Foto Ini:", key="new_photo_caption_input")
 
+    # File Uploader
+    uploaded_file_object = st.file_uploader(
+        f"Pilih Berkas Foto (Max: {MAX_FILE_SIZE_MB}MB, Format: {', '.join(ALLOWED_EXTENSIONS)})",
+        type=list(ALLOWED_EXTENSIONS),
+        key=f"file_uploader_new_photo_{st.session_state.uploader_key_counter}"
+    )
 
-if uploaded_file_object is not None:
-    if st.button("Unggah Foto", key="upload_button"):
-        if uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+    # Pesan untuk File HEIC
+    st.info("""
+        **Catatan Penting untuk File HEIC (.heic):**
+        Jika Anda mengunggah file `.HEIC` dan mengalami masalah (misalnya, gambar tidak muncul atau ada error),
+        mohon konversi file `.HEIC` Anda ke format `.JPG` atau `.PNG` terlebih dahulu menggunakan aplikasi pengeditan foto
+        atau konverter online sebelum mengunggahnya. Terima kasih!
+    """)
+
+    # Tombol Simpan Foto
+    if st.button("💾 Simpan Foto", key="save_photo_button"):
+        if uploaded_file_object is None:
+            st.error("Mohon pilih berkas foto sebelum menyimpan.")
+        elif uploaded_file_object.size > MAX_FILE_SIZE_MB * 1024 * 1024:
             st.error(f"Ukuran file terlalu besar. Maksimal {MAX_FILE_SIZE_MB}MB.")
         elif not allowed_file(uploaded_file_object.name):
             st.error(f"Jenis file tidak diizinkan. Hanya: {', '.join(ALLOWED_EXTENSIONS)}.")
@@ -189,19 +257,17 @@ if uploaded_file_object is not None:
                 try:
                     img_bytes = uploaded_file_object.getvalue()
                     
-                    # Coba identifikasi gambar sebelum membuka untuk debugging
                     try:
                         temp_img_info = Image.open(BytesIO(img_bytes))
                         st.info(f"Pillow berhasil mengidentifikasi file HEIC: {temp_img_info.format}, {temp_img_info.size}")
-                        temp_img_info.close() # Tutup agar tidak mengunci file
+                        temp_img_info.close()
                     except Exception as img_id_e:
                         st.warning(f"Pillow TIDAK dapat mengidentifikasi file HEIC sebagai gambar yang valid: {img_id_e}. Ini mungkin file rusak atau format tidak sepenuhnya didukung.")
-                        st.stop() # Hentikan proses jika tidak teridentifikasi
+                        st.stop()
 
-                    img = Image.open(BytesIO(img_bytes)) # Buka lagi untuk konversi
-                    
+                    img = Image.open(BytesIO(img_bytes))
                     output_buffer = BytesIO()
-                    img.save(output_buffer, format="jpeg", quality=90) # kualitas 90%
+                    img.save(output_buffer, format="jpeg", quality=90)
                     output_buffer.seek(0)
 
                     github_filename = f"{unique_id}.jpeg"
@@ -210,17 +276,15 @@ if uploaded_file_object is not None:
                     st.success("Konversi HEIC ke JPEG berhasil!")
                 except Exception as e:
                     st.error(f"Gagal memproses atau mengonversi file HEIC: {e}. Pastikan 'pillow-heif' terinstal dan file HEIC tidak rusak.")
-                    st.exception(e) # Menampilkan traceback lengkap
+                    st.exception(e)
                     st.stop()
             else:
-                # Jika bukan HEIC, gunakan file asli apa adanya
                 github_filename = f"{unique_id}{ext}"
                 content_to_upload = uploaded_file_object.getvalue()
                 file_mimetype = uploaded_file_object.type
                 st.info(f"Mengunggah file {ext} asli.")
             # --- AKHIR KODE UNTUK KONVERSI HEIC ---
 
-            # Pastikan content_to_upload tidak None karena error konversi
             if content_to_upload is None:
                 st.error("Tidak ada konten yang siap untuk diunggah setelah pemrosesan.")
                 st.stop()
@@ -235,28 +299,28 @@ if uploaded_file_object is not None:
                     branch="main"
                 )
                 st.success("Foto berhasil diunggah ke Galeri WDF di GitHub! 📸")
+                
+                # Simpan caption ke session state dan GitHub
+                st.session_state.image_captions[github_filename] = new_photo_caption
+                save_captions_to_github(st.session_state.image_captions)
 
-                st.session_state.uploader_key_counter += 1
+                st.session_state.uploader_key_counter += 1 # Reset uploader
+                st.session_state.add_photo_mode = False # Sembunyikan form
                 st.rerun()
             except Exception as e:
                 st.error(f"Gagal mengunggah foto ke GitHub: {e}")
-                st.exception(e) # Menampilkan traceback lengkap
-else:
-    st.info("Pilih file di atas untuk mulai mengunggah.")
-
+                st.exception(e)
 st.markdown("---")
+
 
 # --- Bagian Galeri ---
 st.header("Koleksi Foto")
 
 image_files_github = []
 try:
-    # Memastikan kita hanya mengambil file dari folder yang ditentukan
     contents = repo.get_contents(GITHUB_UPLOAD_PATH)
     for content_file in contents:
-        # Kita perlu allowed_file agar tetap memfilter file yang didukung oleh browser/st.image
-        # dan juga agar HEIC yang dikonversi ke JPEG tetap masuk
-        if content_file.type == "file" and allowed_file(content_file.name):
+        if content_file.type == "file" and allowed_file(content_file.name) and content_file.name != "captions.json": # Exclude captions.json
             image_files_github.append(content_file.name)
 
     image_files_github.sort(reverse=True)
@@ -269,13 +333,14 @@ except Exception as e:
 if not image_files_github:
     st.info("Belum ada foto di Galeri WDF. Jadilah yang pertama mengunggah! 🌟")
 else:
+    # Mode Hapus dan Edit
     if 'delete_mode' not in st.session_state:
         st.session_state.delete_mode = False
     if 'selected_for_delete' not in st.session_state:
         st.session_state.selected_for_delete = set()
 
-    col_btn1, col_btn2 = st.columns([1, 5])
-    with col_btn1:
+    col_btn_gallery1, col_btn_gallery2 = st.columns([1, 5])
+    with col_btn_gallery1:
         if st.session_state.delete_mode:
             if st.button("🚫 Batal Hapus", key="cancel_delete_mode"):
                 st.session_state.delete_mode = False
@@ -288,6 +353,8 @@ else:
 
     if st.session_state.delete_mode:
         st.warning("Pilih foto yang ingin Anda hapus. Klik lagi untuk membatalkan pilihan.")
+    elif st.session_state.edit_caption_mode:
+        st.info("Anda sedang mengedit caption. Selesaikan atau batalkan untuk berinteraksi dengan foto lain.")
 
     num_cols = st.columns(1)[0].slider("Jumlah Kolom Tampilan", 1, 6, 4)
 
@@ -296,18 +363,44 @@ else:
 
     for image_name in image_files_github:
         with cols[col_idx]:
-            # Dapatkan URL mentah untuk gambar dari GitHub
-            # Format URL mentah: https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path_to_file}
             image_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{GITHUB_UPLOAD_PATH}/{image_name}"
             
             try:
                 with st.container():
                     st.image(image_url, use_container_width=True)
 
+                    current_caption = st.session_state.image_captions.get(image_name, "Tidak ada caption")
+
+                    # Mode Edit Caption
+                    if st.session_state.edit_caption_mode == image_name:
+                        new_caption_edit = st.text_input(
+                            "Edit Caption:",
+                            value=current_caption,
+                            key=f"edit_caption_input_{image_name}"
+                        )
+                        col_save, col_cancel = st.columns(2)
+                        with col_save:
+                            if st.button("✅ Simpan Caption", key=f"save_edited_caption_{image_name}"):
+                                st.session_state.image_captions[image_name] = new_caption_edit
+                                save_captions_to_github(st.session_state.image_captions)
+                                st.session_state.edit_caption_mode = None
+                                st.rerun()
+                        with col_cancel:
+                            if st.button("❌ Batal Edit", key=f"cancel_edit_caption_{image_name}"):
+                                st.session_state.edit_caption_mode = None
+                                st.rerun()
+                    else:
+                        st.markdown(f"**Caption:** {current_caption}")
+                        if not st.session_state.delete_mode: # Hanya tampilkan tombol edit jika tidak dalam mode hapus
+                            if st.button("✏️ Edit Caption", key=f"edit_caption_button_{image_name}", disabled=(st.session_state.edit_caption_mode is not None and st.session_state.edit_caption_mode != image_name)):
+                                st.session_state.edit_caption_mode = image_name
+                                st.rerun()
+
+                    # Checkbox Hapus (tetap tampil jika delete_mode aktif)
                     if st.session_state.delete_mode:
                         checkbox_key = f"delete_cb_{image_name}"
                         is_checked = image_name in st.session_state.selected_for_delete
-
+                        
                         if st.checkbox(f"Pilih untuk hapus", value=is_checked, key=checkbox_key):
                             st.session_state.selected_for_delete.add(image_name)
                         else:
@@ -316,7 +409,7 @@ else:
 
             except Exception as e:
                 st.error(f"Tidak dapat memuat gambar {image_name} dari GitHub: {e}")
-                st.exception(e) # Menampilkan traceback lengkap
+                st.exception(e)
 
         col_idx = (col_idx + 1) % num_cols
 
@@ -344,11 +437,17 @@ else:
                         sha=file_content.sha,
                         branch="main"
                     )
+                    # Hapus caption dari session state dan GitHub JSON
+                    if filename_to_delete in st.session_state.image_captions:
+                        del st.session_state.image_captions[filename_to_delete]
                     deleted_count += 1
                 except Exception as e:
                     error_count += 1
                     st.error(f"Gagal menghapus {filename_to_delete} dari GitHub: {e}")
-                    st.exception(e) # Menampilkan traceback lengkap
+                    st.exception(e)
+
+            # Setelah semua penghapusan, simpan perubahan caption ke GitHub
+            save_captions_to_github(st.session_state.image_captions)
 
             if deleted_count > 0:
                 st.success(f'{deleted_count} foto berhasil dihapus dari GitHub.')
@@ -366,7 +465,7 @@ st.markdown("---")
 st.markdown(
     f"""
     <div class="footer">
-        <p>&copy; {datetime.now().year} Galeri WDF.</p>
+        <p>&copy; {datetime.now().year} Galeri WDF. Dibuat untuk Kenangan.</p>
     </div>
     """,
     unsafe_allow_html=True
